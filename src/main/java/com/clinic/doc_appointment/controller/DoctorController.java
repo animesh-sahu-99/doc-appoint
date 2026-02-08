@@ -30,7 +30,7 @@ public class DoctorController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<DoctorResponse>> getDoctorById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<DoctorResponse>> getDoctorById(@PathVariable String id) {
         DoctorResponse doctor = doctorService.getDoctorById(id);
         return ResponseEntity.ok(ApiResponse.success(doctor, "Doctor found"));
     }

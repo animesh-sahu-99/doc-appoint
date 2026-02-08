@@ -50,7 +50,7 @@ public class SlotController {
 
     @GetMapping("/doctor/{doctorId}/range")
     public ResponseEntity<ApiResponse<List<SlotResponse>>> getAvailableSlotsInRange(
-            @PathVariable Long doctorId,
+            @PathVariable String doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         List<SlotResponse> slots = slotService.getAvailableSlotsInRange(doctorId, startDate, endDate);

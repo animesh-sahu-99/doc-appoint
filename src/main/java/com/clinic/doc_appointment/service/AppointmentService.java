@@ -10,7 +10,6 @@ import com.clinic.doc_appointment.enums.AppointmentStatus;
 import com.clinic.doc_appointment.exception.BookingConflictException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.exception.SlotAlreadyBookedException;
-import com.clinic.doc_appointment.exception.SlotNotAvailableException;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;

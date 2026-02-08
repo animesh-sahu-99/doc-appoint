@@ -28,7 +28,7 @@ public class PatientController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Patient>> getPatientById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Patient>> getPatientById(@PathVariable String id) {
         Patient patient = patientService.getPatientById(id);
         return ResponseEntity.ok(ApiResponse.success(patient, "Patient found"));
     }
