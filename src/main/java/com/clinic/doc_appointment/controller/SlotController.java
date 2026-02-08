@@ -42,7 +42,7 @@ public class SlotController {
 
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<ApiResponse<List<SlotResponse>>> getAvailableSlots(
-            @PathVariable Long doctorId,
+            @PathVariable String doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         List<SlotResponse> slots = slotService.getAvailableSlots(doctorId, date);
         return ResponseEntity.ok(ApiResponse.success(slots, "Available slots retrieved"));

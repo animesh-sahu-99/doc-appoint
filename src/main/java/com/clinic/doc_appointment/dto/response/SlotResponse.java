@@ -1,7 +1,5 @@
 package com.clinic.doc_appointment.dto.response;
 
-
-import lombok.Builder;
 import lombok.Data;
 import lombok.Setter;
 import lombok.experimental.Accessors;

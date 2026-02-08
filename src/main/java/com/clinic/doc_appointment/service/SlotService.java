@@ -83,7 +83,7 @@ public class SlotService {
         return slotRepository.saveAll(slots);
     }
 
-    public List<SlotResponse> getAvailableSlots(Long doctorId, LocalDate date) {
+    public List<SlotResponse> getAvailableSlots(String doctorId, LocalDate date) {
         List<DoctorAvailability> slots = slotRepository
                 .findByDoctorDoctorIdAndSlotDateAndIsAvailableTrue(doctorId, date);
 

@@ -1,3 +1,4 @@
+// repository/DoctorAvailabilityRepository.java
 package com.clinic.doc_appointment.repository;
 
 import com.clinic.doc_appointment.entity.DoctorAvailability;
@@ -7,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,12 +18,20 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
     // Find available slot by ID
     Optional<DoctorAvailability> findBySlotIdAndIsAvailableTrue(String slotId);
 
-    // Find all available slots for a doctor on a date
+    // Find all slots for a doctor on a specific date
+    List<DoctorAvailability> findByDoctorDoctorIdAndSlotDate(String doctorId, LocalDate slotDate);
+
+    // Find available slots for a doctor on a specific date
     List<DoctorAvailability> findByDoctorDoctorIdAndSlotDateAndIsAvailableTrue(
             String doctorId, LocalDate slotDate);
 
-    // Find all available slots for a doctor
-    List<DoctorAvailability> findByDoctorDoctorIdAndIsAvailableTrue(String doctorId);
+    // Find available slots for a doctor (future dates only)
+    @Query("SELECT s FROM DoctorAvailability s " +
+            "WHERE s.doctor.doctorId = :doctorId " +
+            "AND s.isAvailable = true " +
+            "AND s.slotDate >= CURRENT_DATE " +
+            "ORDER BY s.slotDate, s.startTime")
+    List<DoctorAvailability> findAvailableSlotsByDoctor(@Param("doctorId") String doctorId);
 
     // Find available slots in date range
     @Query("SELECT s FROM DoctorAvailability s " +
@@ -33,4 +43,18 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
             @Param("doctorId") String doctorId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    // Check for overlapping slots
+    @Query("SELECT s FROM DoctorAvailability s " +
+            "WHERE s.doctor.doctorId = :doctorId " +
+            "AND s.slotDate = :date " +
+            "AND ((s.startTime < :endTime AND s.endTime > :startTime))")
+    List<DoctorAvailability> findOverlappingSlots(
+            @Param("doctorId") String doctorId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    // Delete slots for a doctor on a specific date
+    void deleteByDoctorDoctorIdAndSlotDate(String doctorId, LocalDate slotDate);
 }
