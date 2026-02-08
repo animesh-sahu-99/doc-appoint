@@ -1,4 +1,26 @@
 package com.clinic.doc_appointment.dto.response;
 
+import com.clinic.doc_appointment.enums.Specialization;
+import lombok.Data;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+import java.math.BigDecimal;
+
+@Data @Setter @Accessors(chain = true)
 public class DoctorResponse {
+    private String doctorId;
+    private String name;
+    private String email;
+    private String phone;
+    private Specialization specialization;
+    private String specializationDisplayName;  // For frontend display
+    private String specializationDescription;
+    private String qualification;
+    private Integer experienceYears;
+    private BigDecimal consultationFee;
+    private String profileImage;
+    private String about;
+    private Boolean isActive;
+
 }

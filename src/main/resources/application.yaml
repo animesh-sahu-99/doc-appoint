@@ -1,3 +1,17 @@
+server:
+  port: 8081
 spring:
   application:
     name: doc-appointment
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/doc_appointment_db
+    username: admin
+    password: password
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+

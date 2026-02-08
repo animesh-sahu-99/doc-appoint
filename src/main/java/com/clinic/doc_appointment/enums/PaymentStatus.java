@@ -1,4 +1,8 @@
 package com.clinic.doc_appointment.enums;
 
-public class PaymentStatus {
+public enum PaymentStatus {
+    PENDING,
+    COMPLETED,
+    FAILED,
+    REFUNDED
 }
