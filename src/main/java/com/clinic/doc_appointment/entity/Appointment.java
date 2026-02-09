@@ -1,6 +1,7 @@
 package com.clinic.doc_appointment.entity;
 
 import com.clinic.doc_appointment.enums.AppointmentStatus;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,10 +35,12 @@ public class Appointment {
     @Column(unique = true, nullable = false)
     private String appointmentNumber;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;

@@ -10,6 +10,7 @@ import java.util.UUID;
 
 import com.clinic.doc_appointment.enums.Gender;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
@@ -44,7 +45,6 @@ public class Patient {
     @Column(nullable = false)
     private String firstName;
 
-    @Column(nullable = true)
     private String lastName;
 
     @Column(nullable = true, unique = true)
@@ -66,9 +66,9 @@ public class Patient {
 
     private LocalDate dateOfBirth;
 
-    @Column(nullable = true)
     private String address;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL)
     private List<Appointment> appointments = new ArrayList<>();
 

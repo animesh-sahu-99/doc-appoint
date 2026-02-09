@@ -53,6 +53,12 @@ public class SlotController {
             @PathVariable String doctorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        
+        if (startDate.isAfter(endDate)) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Start date must be before or equal to end date"));
+        }
+        
         List<SlotResponse> slots = slotService.getAvailableSlotsInRange(doctorId, startDate, endDate);
         return ResponseEntity.ok(ApiResponse.success(slots, "Available slots retrieved"));
     }

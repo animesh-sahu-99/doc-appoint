@@ -27,4 +27,12 @@ public class CreateSlotRequest {
     @Min(value = 10, message = "Minimum duration is 10 minutes")
     @Max(value = 120, message = "Maximum duration is 120 minutes")
     private Integer durationMinutes;
+
+    @AssertTrue(message = "End time must be after start time")
+    public boolean isEndTimeAfterStartTime() {
+        if (startTime == null || endTime == null) {
+            return true; // Let @NotNull handle null validation
+        }
+        return endTime.isAfter(startTime);
+    }
 }
