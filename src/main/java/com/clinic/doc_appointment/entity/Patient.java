@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.UUID;
 
 import com.clinic.doc_appointment.enums.Gender;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -45,6 +48,7 @@ public class Patient {
     private String lastName;
 
     @Column(nullable = true, unique = true)
+    @Email
     private String email;
 
     @Column(name = "countryCode", length = 5, nullable = false)
@@ -53,6 +57,7 @@ public class Patient {
     @Column(name = "phoneNumber", length = 15, nullable = false)
     private String phoneNumber; //  9415050850
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

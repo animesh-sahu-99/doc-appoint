@@ -2,12 +2,11 @@ package com.clinic.doc_appointment.dto.response;
 
 import com.clinic.doc_appointment.enums.Specialization;
 import lombok.Data;
-import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
 
-@Data @Setter @Accessors(chain = true)
+@Data @Accessors(chain = true)
 public class DoctorResponse {
     private String doctorId;
     private String name;

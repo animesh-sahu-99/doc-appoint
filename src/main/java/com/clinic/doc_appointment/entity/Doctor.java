@@ -1,8 +1,10 @@
 package com.clinic.doc_appointment.entity;
 
 import com.clinic.doc_appointment.enums.Specialization;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,8 +40,7 @@ public class Doctor {
 
     @Column(nullable = false)
     private String firstName;
-
-    @Column(nullable = true)
+    
     private String lastName;
 
 
@@ -49,9 +50,11 @@ public class Doctor {
     @Column(name = "phoneNumber", length = 15, nullable = false)
     private String phoneNumber; //  9415050850
 
-    @Column(nullable = true)
+    @Column(nullable = true, unique = true)
+    @Email
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -73,9 +76,11 @@ public class Doctor {
 
     private Boolean isActive = true;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL)
     private List<DoctorAvailability> availabilitySlots = new ArrayList<>();
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL)
     private List<Appointment> appointments = new ArrayList<>();
 

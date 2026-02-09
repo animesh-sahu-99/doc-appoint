@@ -1,13 +1,12 @@
 package com.clinic.doc_appointment.dto.response;
 
 import lombok.Data;
-import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-@Data @Setter
+@Data
 @Accessors(chain = true)
 public class SlotResponse {
     private String slotId;

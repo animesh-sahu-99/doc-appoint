@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,7 +32,7 @@ public class DoctorAvailability {
         }
     }
 
-    // ✅ OPTIMISTIC LOCKING - Version field
+    // OPTIMISTIC LOCKING - Version field
     @Version
     private Long version;
 
@@ -60,6 +61,9 @@ public class DoctorAvailability {
 
     @CreationTimestamp
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 
 
 }
