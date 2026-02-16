@@ -27,6 +27,7 @@ public class AppointmentResponse {
     private BigDecimal consultationFee;
 
     // Slot Info
+    private String slotId;
     private LocalDate appointmentDate;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -35,4 +36,6 @@ public class AppointmentResponse {
     private AppointmentStatus status;
     private String reasonForVisit;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String notes;
 }

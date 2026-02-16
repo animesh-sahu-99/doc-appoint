@@ -6,10 +6,12 @@ import com.clinic.doc_appointment.dto.response.AppointmentResponse;
 import com.clinic.doc_appointment.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -56,11 +58,39 @@ public class AppointmentController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/patient/{patientId}/upcoming")
+    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getUpcomingPatientAppointments(
+            @PathVariable String patientId) {
+
+        List<AppointmentResponse> response = appointmentService.getUpcomingPatientAppointments(patientId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @GetMapping("/doctor/{doctorId}")
     public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorAppointments(
             @PathVariable String doctorId) {
 
         List<AppointmentResponse> response = appointmentService.getDoctorAppointments(doctorId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/doctor/{doctorId}/upcoming")
+    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getUpcomingDoctorAppointments(
+            @PathVariable String doctorId) {
+
+        List<AppointmentResponse> response = appointmentService.getUpcomingDoctorAppointments(doctorId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/doctor/{doctorId}/date/{date}")
+    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorAppointmentsByDate(
+            @PathVariable String doctorId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+
+        List<AppointmentResponse> response = appointmentService.getDoctorAppointmentsByDate(doctorId, date);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -90,5 +120,14 @@ public class AppointmentController {
         AppointmentResponse response = appointmentService.completeAppointment(appointmentId);
 
         return ResponseEntity.ok(ApiResponse.success(response, "Appointment completed"));
+    }
+
+    @PutMapping("/{appointmentId}/no-show")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> markNoShow(
+            @PathVariable String appointmentId) {
+
+        AppointmentResponse response = appointmentService.markNoShow(appointmentId);
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Appointment marked as no-show"));
     }
 }

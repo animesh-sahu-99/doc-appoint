@@ -1,8 +1,9 @@
 package com.clinic.doc_appointment.controller;
 
 import com.clinic.doc_appointment.dto.request.PatientRegistrationRequest;
+import com.clinic.doc_appointment.dto.request.PatientUpdateRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
-import com.clinic.doc_appointment.entity.Patient;
+import com.clinic.doc_appointment.dto.response.PatientResponse;
 import com.clinic.doc_appointment.service.PatientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,22 +21,57 @@ public class PatientController {
     private final PatientService patientService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<Patient>> registerPatient(
+    public ResponseEntity<ApiResponse<PatientResponse>> registerPatient(
             @Valid @RequestBody PatientRegistrationRequest request) {
-        Patient patient = patientService.registerPatient(request);
+
+        PatientResponse response = patientService.registerPatient(request);
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(patient, "Patient registered successfully"));
+                .body(ApiResponse.success(response, "Patient registered successfully"));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Patient>> getPatientById(@PathVariable String id) {
-        Patient patient = patientService.getPatientById(id);
-        return ResponseEntity.ok(ApiResponse.success(patient, "Patient found"));
+    @GetMapping("/{patientId}")
+    public ResponseEntity<ApiResponse<PatientResponse>> getPatientById(
+            @PathVariable String patientId) {
+
+        PatientResponse response = patientService.getPatientById(patientId);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/phone")
+    public ResponseEntity<ApiResponse<PatientResponse>> getPatientByPhone(
+            @RequestParam String countryCode,
+            @RequestParam String phoneNumber) {
+
+        PatientResponse response = patientService.getPatientByPhone(countryCode, phoneNumber);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Patient>>> getAllPatients() {
-        List<Patient> patients = patientService.getAllPatients();
-        return ResponseEntity.ok(ApiResponse.success(patients, "Patients retrieved"));
+    public ResponseEntity<ApiResponse<List<PatientResponse>>> getAllPatients() {
+
+        List<PatientResponse> response = patientService.getAllPatients();
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{patientId}")
+    public ResponseEntity<ApiResponse<PatientResponse>> updatePatient(
+            @PathVariable String patientId,
+            @Valid @RequestBody PatientUpdateRequest request) {
+
+        PatientResponse response = patientService.updatePatient(patientId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Patient updated successfully"));
+    }
+
+    @DeleteMapping("/{patientId}")
+    public ResponseEntity<ApiResponse<Void>> deletePatient(@PathVariable String patientId) {
+
+        patientService.deletePatient(patientId);
+
+        return ResponseEntity.ok(ApiResponse.success(null, "Patient deleted successfully"));
     }
 }
