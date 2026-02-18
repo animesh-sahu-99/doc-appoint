@@ -25,7 +25,8 @@ import java.util.UUID;
 })
 @Getter
 @Setter
-@Accessors(chain = true) @NoArgsConstructor
+@Accessors(chain = true)
+@NoArgsConstructor
 @AllArgsConstructor
 public class Doctor {
     @Id

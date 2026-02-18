@@ -19,7 +19,8 @@ import java.util.UUID;
 @Table(name = "doctor_availability")
 @Getter
 @Setter
-@Accessors(chain = true) @NoArgsConstructor
+@Accessors(chain = true)
+@NoArgsConstructor
 @AllArgsConstructor
 public class DoctorAvailability {
     @Id

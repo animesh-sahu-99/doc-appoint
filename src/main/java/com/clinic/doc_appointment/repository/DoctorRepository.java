@@ -16,7 +16,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, String> {
 
     boolean existsByEmail(String email);
 
-    boolean existsByPhone(String phone);
+    boolean existsByCountryCodeAndPhoneNumber(String countryCode, String phoneNumber);
 
     // ✅ Find by exact specialization
     List<Doctor> findBySpecialization(Specialization specialization);
@@ -31,7 +31,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, String> {
     List<Doctor> findBySpecializationIn(List<Specialization> specializations);
 
     // ✅ Search doctors by name
-    List<Doctor> findByNameContainingIgnoreCaseAndIsActiveTrue(String name);
+    List<Doctor> findByFirstNameContainingIgnoreCaseAndIsActiveTrueOrLastNameContainingIgnoreCaseAndIsActiveTrue(String firstName, String lastName);
 
     // ✅ Custom query - Find doctors with available slots
     @Query("SELECT DISTINCT d FROM Doctor d " +

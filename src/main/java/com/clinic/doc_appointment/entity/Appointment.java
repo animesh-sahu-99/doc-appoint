@@ -18,8 +18,10 @@ import java.util.UUID;
 @Table(name = "appointments")
 @Getter
 @Setter
-@Accessors(chain = true) @NoArgsConstructor
+@Accessors(chain = true)
+@NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AppointmentEntityListener.class)
 public class Appointment {
     @Id
     private String appointmentId;
@@ -67,4 +69,12 @@ public class Appointment {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    // Transient field to track previous status for lifecycle callbacks
+    @Transient
+    private AppointmentStatus previousStatus;
+
+    @PostLoad
+    public void storePreviousStatus() {
+        this.previousStatus = this.status;
+    }
 }

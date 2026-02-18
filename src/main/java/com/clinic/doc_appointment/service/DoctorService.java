@@ -26,14 +26,15 @@ public class DoctorService {
             throw new RuntimeException("Email already registered");
         }
 
-        if (doctorRepository.existsByPhone(request.getPhoneNumber())) {
+        if (doctorRepository.existsByCountryCodeAndPhoneNumber(request.getCountryCode(), request.getPhoneNumber())) {
             throw new RuntimeException("Phone already registered");
         }
 
         Doctor doctor = new Doctor()
                 .setFirstName(request.getName())
                 .setEmail(request.getEmail())
-                .setPassword(request.getPhoneNumber())
+                .setCountryCode(request.getCountryCode())
+                .setPhoneNumber(request.getPhoneNumber())
                 .setPassword(request.getPassword())  // Encrypt in production!
                 .setSpecialization(request.getSpecialization())
                 .setQualification(request.getQualification())

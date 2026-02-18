@@ -47,7 +47,7 @@ public class Patient {
 
     private String lastName;
 
-    @Column(nullable = true, unique = true)
+    @Column(unique = true)
     @Email
     private String email;
 

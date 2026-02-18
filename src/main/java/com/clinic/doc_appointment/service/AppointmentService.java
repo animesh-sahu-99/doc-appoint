@@ -195,17 +195,12 @@ public class AppointmentService {
             throw new RuntimeException("Cannot cancel a completed appointment");
         }
 
-        // Update status
+        // Update status - slot will be freed automatically by @PostUpdate listener
         appointment.setStatus(AppointmentStatus.CANCELLED);
-        appointmentRepository.save(appointment);
-
-        // Make slot available again
-        DoctorAvailability slot = appointment.getSlot();
-        slot.setIsAvailable(true);
-        slotRepository.save(slot);
+        Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment cancelled: {}", appointmentId);
-        return mapToResponse(appointment);
+        return mapToResponse(saved);
     }
 
     @Transactional
@@ -289,5 +284,25 @@ public class AppointmentService {
                 .setNotes(appointment.getNotes())
                 .setCreatedAt(appointment.getCreatedAt())
                 .setUpdatedAt(appointment.getUpdatedAt());
+    }
+
+    /**
+     * Helper method to free a slot
+     * Used for manual slot freeing when needed outside of entity lifecycle
+     */
+    private void freeSlot(DoctorAvailability slot) {
+        if (slot == null) {
+            log.warn("Cannot free slot: slot is null");
+            return;
+        }
+
+        if (slot.getIsAvailable()) {
+            log.debug("Slot {} is already available, skipping", slot.getSlotId());
+            return;
+        }
+
+        slot.setIsAvailable(true);
+        slotRepository.save(slot);
+        log.info("Slot {} freed successfully", slot.getSlotId());
     }
 }

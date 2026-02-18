@@ -5,7 +5,11 @@ import com.clinic.doc_appointment.dto.request.CreateSlotRequest;
 import com.clinic.doc_appointment.dto.response.SlotResponse;
 import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.entity.DoctorAvailability;
+import com.clinic.doc_appointment.exception.BookedSlotException;
+import com.clinic.doc_appointment.exception.InvalidSlotDateException;
+import com.clinic.doc_appointment.exception.InvalidSlotTimeException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
+import com.clinic.doc_appointment.exception.SlotOverlapException;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.DoctorRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,10 +40,15 @@ public class SlotService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Doctor not found with ID: " + request.getDoctorId()));
 
+        // Validate slot date is not in the past
+        if (request.getSlotDate().isBefore(LocalDate.now())) {
+            throw new InvalidSlotDateException("Cannot create slots for past dates");
+        }
+
         // Validate time range
         if (request.getEndTime().isBefore(request.getStartTime()) ||
                 request.getEndTime().equals(request.getStartTime())) {
-            throw new RuntimeException("End time must be after start time");
+            throw new InvalidSlotTimeException("End time must be after start time");
         }
 
         // Check for overlapping slots
@@ -50,7 +59,7 @@ public class SlotService {
                 request.getEndTime());
 
         if (!overlapping.isEmpty()) {
-            throw new RuntimeException("Slot overlaps with existing slots");
+            throw new SlotOverlapException("Slot overlaps with existing slots");
         }
 
         // Create slot
@@ -78,16 +87,23 @@ public class SlotService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Doctor not found with ID: " + request.getDoctorId()));
 
+        // Validate slot date is not in the past
+        if (request.getSlotDate().isBefore(LocalDate.now())) {
+            throw new InvalidSlotDateException("Cannot create slots for past dates");
+        }
+
         // Validate time range
-        if (request.getDayEndTime().isBefore(request.getDayStartTime())) {
-            throw new RuntimeException("Day end time must be after start time");
+        if (request.getDayEndTime().isBefore(request.getDayStartTime()) ||
+                request.getDayEndTime().equals(request.getDayStartTime())) {
+            throw new InvalidSlotTimeException("Day end time must be after start time");
         }
 
         List<DoctorAvailability> slots = new ArrayList<>();
         LocalTime currentStart = request.getDayStartTime();
 
-        while (currentStart.plusMinutes(request.getSlotDurationMinutes())
-                .isBefore(request.getDayEndTime().plusSeconds(1))) {
+        // Fixed: Use proper comparison instead of plusSeconds(1) hack
+        while (!currentStart.plusMinutes(request.getSlotDurationMinutes())
+                .isAfter(request.getDayEndTime())) {
 
             LocalTime currentEnd = currentStart.plusMinutes(request.getSlotDurationMinutes());
 
@@ -117,9 +133,7 @@ public class SlotService {
         List<DoctorAvailability> savedSlots = slotRepository.saveAll(slots);
         log.info("Created {} slots for doctor: {}", savedSlots.size(), request.getDoctorId());
 
-        return savedSlots.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponseList(savedSlots);
     }
 
     public SlotResponse getSlotById(String slotId) {
@@ -135,10 +149,7 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return slotRepository.findAvailableSlotsByDoctor(doctorId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponseList(slotRepository.findAvailableSlotsByDoctor(doctorId));
     }
 
     public List<SlotResponse> getAvailableSlotsByDoctorAndDate(String doctorId, LocalDate date) {
@@ -147,10 +158,8 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return slotRepository.findByDoctorDoctorIdAndSlotDateAndIsAvailableTrue(doctorId, date)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponseList(
+                slotRepository.findByDoctorDoctorIdAndSlotDateAndIsAvailableTrue(doctorId, date));
     }
 
     public List<SlotResponse> getAvailableSlotsByDoctorAndDateRange(
@@ -161,10 +170,8 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return slotRepository.findAvailableSlotsByDoctorAndDateRange(doctorId, startDate, endDate)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponseList(
+                slotRepository.findAvailableSlotsByDoctorAndDateRange(doctorId, startDate, endDate));
     }
 
     public List<SlotResponse> getAllSlotsByDoctorAndDate(String doctorId, LocalDate date) {
@@ -173,10 +180,7 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return slotRepository.findByDoctorDoctorIdAndSlotDate(doctorId, date)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return mapToResponseList(slotRepository.findByDoctorDoctorIdAndSlotDate(doctorId, date));
     }
 
     @Transactional
@@ -188,7 +192,7 @@ public class SlotService {
                         "Slot not found with ID: " + slotId));
 
         if (!slot.getIsAvailable()) {
-            throw new RuntimeException("Cannot delete a booked slot");
+            throw new BookedSlotException("Cannot delete a booked slot");
         }
 
         slotRepository.delete(slot);
@@ -204,7 +208,7 @@ public class SlotService {
         boolean hasBookedSlots = slots.stream().anyMatch(slot -> !slot.getIsAvailable());
 
         if (hasBookedSlots) {
-            throw new RuntimeException("Cannot delete slots that are already booked");
+            throw new BookedSlotException("Cannot delete slots that are already booked");
         }
 
         slotRepository.deleteByDoctorDoctorIdAndSlotDate(doctorId, date);
@@ -228,5 +232,11 @@ public class SlotService {
                 .setDurationMinutes(slot.getDurationMinutes())
                 .setIsAvailable(slot.getIsAvailable())
                 .setCreatedAt(slot.getCreatedAt());
+    }
+
+    private List<SlotResponse> mapToResponseList(List<DoctorAvailability> slots) {
+        return slots.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 }

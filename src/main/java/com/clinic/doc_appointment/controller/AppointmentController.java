@@ -4,6 +4,8 @@ import com.clinic.doc_appointment.dto.request.BookAppointmentRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.AppointmentResponse;
 import com.clinic.doc_appointment.service.AppointmentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -17,11 +19,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/appointments")
 @RequiredArgsConstructor
+@Tag(name = "Appointments", description = "Appointment management APIs - booking, cancellation, and status updates")
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
 
     @PostMapping("/book")
+    @Operation(summary = "Book an appointment", description = "Book a new appointment for a patient with a specific doctor slot")
     public ResponseEntity<ApiResponse<AppointmentResponse>> bookAppointment(
             @Valid @RequestBody BookAppointmentRequest request) {
 
@@ -105,6 +109,7 @@ public class AppointmentController {
     }
 
     @PutMapping("/{appointmentId}/cancel")
+    @Operation(summary = "Cancel appointment", description = "Cancel an appointment and automatically free the slot")
     public ResponseEntity<ApiResponse<AppointmentResponse>> cancelAppointment(
             @PathVariable String appointmentId) {
 

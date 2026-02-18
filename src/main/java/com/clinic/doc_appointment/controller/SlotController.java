@@ -5,6 +5,8 @@ import com.clinic.doc_appointment.dto.request.CreateSlotRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.SlotResponse;
 import com.clinic.doc_appointment.service.SlotService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -18,11 +20,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/slots")
 @RequiredArgsConstructor
+@Tag(name = "Slots", description = "Doctor availability slot management APIs")
 public class SlotController {
 
     private final SlotService slotService;
 
     @PostMapping
+    @Operation(summary = "Create a single slot", description = "Create a new availability slot for a doctor")
     public ResponseEntity<ApiResponse<SlotResponse>> createSlot(
             @Valid @RequestBody CreateSlotRequest request) {
 
@@ -33,6 +37,7 @@ public class SlotController {
     }
 
     @PostMapping("/bulk")
+    @Operation(summary = "Create multiple slots", description = "Create multiple availability slots for a doctor in bulk")
     public ResponseEntity<ApiResponse<List<SlotResponse>>> createBulkSlots(
             @Valid @RequestBody BulkSlotRequest request) {
 

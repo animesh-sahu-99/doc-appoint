@@ -1,6 +1,7 @@
 // entity/Payment.java
 package com.clinic.doc_appointment.entity;
 
+import com.clinic.doc_appointment.enums.PaymentMethod;
 import com.clinic.doc_appointment.enums.PaymentStatus;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -40,7 +41,8 @@ public class Payment {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
-    private String paymentMethod;  // CARD, UPI, NET_BANKING, etc.
+    @Enumerated(EnumType.STRING)
+    private PaymentMethod paymentMethod;
 
     private String transactionId;
 
