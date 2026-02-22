@@ -8,6 +8,7 @@ import com.clinic.doc_appointment.entity.DoctorAvailability;
 import com.clinic.doc_appointment.entity.Patient;
 import com.clinic.doc_appointment.enums.AppointmentStatus;
 import com.clinic.doc_appointment.exception.BookingConflictException;
+import com.clinic.doc_appointment.exception.InvalidStateException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.exception.SlotAlreadyBookedException;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
@@ -23,17 +24,19 @@ import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AppointmentService {
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();  // ✅ Thread-safe, no duplicate seeds
 
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
@@ -160,13 +163,18 @@ public class AppointmentService {
     }
 
     @Transactional
+    @Retryable(
+            retryFor = {OptimisticLockingFailureException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 2)
+    )
     public AppointmentResponse confirmAppointment(String appointmentId) {
         log.info("Confirming appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
 
         if (appointment.getStatus() != AppointmentStatus.PENDING) {
-            throw new RuntimeException("Only pending appointments can be confirmed");
+            throw new InvalidStateException("Only pending appointments can be confirmed");
         }
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
@@ -188,11 +196,11 @@ public class AppointmentService {
         Appointment appointment = findAppointmentById(appointmentId);
 
         if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
-            throw new RuntimeException("Appointment is already cancelled");
+            throw new InvalidStateException("Appointment is already cancelled");
         }
 
         if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
-            throw new RuntimeException("Cannot cancel a completed appointment");
+            throw new InvalidStateException("Cannot cancel a completed appointment");
         }
 
         // Update status - slot will be freed automatically by @PostUpdate listener
@@ -204,13 +212,18 @@ public class AppointmentService {
     }
 
     @Transactional
+    @Retryable(
+            retryFor = {OptimisticLockingFailureException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 2)
+    )
     public AppointmentResponse completeAppointment(String appointmentId) {
         log.info("Completing appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
 
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new RuntimeException("Only confirmed appointments can be completed");
+            throw new InvalidStateException("Only confirmed appointments can be completed");
         }
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
@@ -221,6 +234,11 @@ public class AppointmentService {
     }
 
     @Transactional
+    @Retryable(
+            retryFor = {OptimisticLockingFailureException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 2)
+    )
     public AppointmentResponse markNoShow(String appointmentId) {
         log.info("Marking appointment as no-show: {}", appointmentId);
 
@@ -228,7 +246,7 @@ public class AppointmentService {
 
         if (appointment.getStatus() == AppointmentStatus.CANCELLED ||
                 appointment.getStatus() == AppointmentStatus.COMPLETED) {
-            throw new RuntimeException("Cannot mark cancelled/completed appointment as no-show");
+            throw new InvalidStateException("Cannot mark cancelled/completed appointment as no-show");
         }
 
         appointment.setStatus(AppointmentStatus.NO_SHOW);
@@ -249,7 +267,7 @@ public class AppointmentService {
     private String generateAppointmentNumber() {
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
-        String random = String.format("%04d", new Random().nextInt(10000));
+        String random = String.format("%04d", SECURE_RANDOM.nextInt(10000));
         return "APT" + timestamp + random;
     }
 
@@ -286,23 +304,4 @@ public class AppointmentService {
                 .setUpdatedAt(appointment.getUpdatedAt());
     }
 
-    /**
-     * Helper method to free a slot
-     * Used for manual slot freeing when needed outside of entity lifecycle
-     */
-    private void freeSlot(DoctorAvailability slot) {
-        if (slot == null) {
-            log.warn("Cannot free slot: slot is null");
-            return;
-        }
-
-        if (slot.getIsAvailable()) {
-            log.debug("Slot {} is already available, skipping", slot.getSlotId());
-            return;
-        }
-
-        slot.setIsAvailable(true);
-        slotRepository.save(slot);
-        log.info("Slot {} freed successfully", slot.getSlotId());
-    }
 }

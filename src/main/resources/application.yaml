@@ -24,3 +24,8 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
   show-actuator: false
+
+# JWT Configuration
+jwt:
+  secret: doc-appointment-super-secret-key-change-in-production-2024
+  expiration: 86400000  # 24 hours in milliseconds

@@ -41,14 +41,16 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
     @Query("SELECT a FROM Appointment a " +
             "WHERE a.doctor.doctorId = :doctorId " +
             "AND a.slot.slotDate >= CURRENT_DATE " +
-            "AND a.status IN ('PENDING', 'CONFIRMED') " +
+            "AND (a.status = com.clinic.doc_appointment.enums.AppointmentStatus.PENDING " +
+            "  OR a.status = com.clinic.doc_appointment.enums.AppointmentStatus.CONFIRMED) " +
             "ORDER BY a.slot.slotDate, a.slot.startTime")
     List<Appointment> findUpcomingByDoctor(@Param("doctorId") String doctorId);
 
     @Query("SELECT a FROM Appointment a " +
             "WHERE a.patient.patientId = :patientId " +
             "AND a.slot.slotDate >= CURRENT_DATE " +
-            "AND a.status IN ('PENDING', 'CONFIRMED') " +
+            "AND (a.status = com.clinic.doc_appointment.enums.AppointmentStatus.PENDING " +
+            "  OR a.status = com.clinic.doc_appointment.enums.AppointmentStatus.CONFIRMED) " +
             "ORDER BY a.slot.slotDate, a.slot.startTime")
     List<Appointment> findUpcomingByPatient(@Param("patientId") String patientId);
 }

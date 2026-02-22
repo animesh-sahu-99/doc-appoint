@@ -9,6 +9,7 @@ import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.repository.PatientRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class PatientService {
 
     private final PatientRepository patientRepository;
+    private final PasswordEncoder passwordEncoder;  // ✅ Injected for BCrypt
 
     @Transactional
     public PatientResponse registerPatient(PatientRegistrationRequest request) {
@@ -46,7 +48,7 @@ public class PatientService {
                 .setEmail(request.getEmail())
                 .setCountryCode(request.getCountryCode())
                 .setPhoneNumber(request.getPhoneNumber())
-                .setPassword(request.getPassword())  // TODO: Encrypt password
+                .setPassword(passwordEncoder.encode(request.getPassword()))  // ✅ BCrypt hashed
                 .setGender(request.getGender())
                 .setDateOfBirth(request.getDateOfBirth())
                 .setAddress(request.getAddress());

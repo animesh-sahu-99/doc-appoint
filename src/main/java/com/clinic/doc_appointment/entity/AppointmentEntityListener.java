@@ -42,10 +42,16 @@ public class AppointmentEntityListener {
         // Check if status changed to CANCELLED
         if (appointment.getPreviousStatus() != AppointmentStatus.CANCELLED &&
             appointment.getStatus() == AppointmentStatus.CANCELLED) {
-            
-            log.info("PostUpdate: Status changed to CANCELLED for appointment: {}, freeing slot", 
+
+            log.info("PostUpdate: Status changed to CANCELLED for appointment: {}, freeing slot",
                     appointment.getAppointmentId());
-            freeSlot(appointment.getSlot());
+
+            // ✅ Null-safety: guard against orphaned appointments
+            if (appointment.getSlot() != null) {
+                freeSlot(appointment.getSlot());
+            } else {
+                log.warn("Appointment {} has no slot attached — skipping slot freeing", appointment.getAppointmentId());
+            }
         }
     }
 

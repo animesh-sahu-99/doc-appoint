@@ -4,9 +4,11 @@ import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
 import com.clinic.doc_appointment.dto.response.DoctorResponse;
 import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.enums.Specialization;
+import com.clinic.doc_appointment.exception.DuplicateResourceException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.repository.DoctorRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,15 +21,16 @@ import java.util.stream.Collectors;
 public class DoctorService {
 
     private final DoctorRepository doctorRepository;
+    private final PasswordEncoder passwordEncoder;  // ✅ Injected for BCrypt
 
     @Transactional
     public DoctorResponse registerDoctor(DoctorRegistrationRequest request) {
         if (doctorRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new DuplicateResourceException("Email already registered");
         }
 
         if (doctorRepository.existsByCountryCodeAndPhoneNumber(request.getCountryCode(), request.getPhoneNumber())) {
-            throw new RuntimeException("Phone already registered");
+            throw new DuplicateResourceException("Phone already registered");
         }
 
         Doctor doctor = new Doctor()
@@ -35,7 +38,7 @@ public class DoctorService {
                 .setEmail(request.getEmail())
                 .setCountryCode(request.getCountryCode())
                 .setPhoneNumber(request.getPhoneNumber())
-                .setPassword(request.getPassword())  // Encrypt in production!
+                .setPassword(passwordEncoder.encode(request.getPassword()))  // ✅ BCrypt hashed
                 .setSpecialization(request.getSpecialization())
                 .setQualification(request.getQualification())
                 .setExperienceYears(request.getExperienceYears())
