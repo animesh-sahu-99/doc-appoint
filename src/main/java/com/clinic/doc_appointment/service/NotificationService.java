@@ -34,6 +34,10 @@ public class NotificationService {
 
     @Transactional
     public void registerDeviceToken(String userId, String fcmToken, String deviceType) {
+        // Step 1: Deactivate all previous tokens for this user (handles app reinstall / new tokens)
+        userDeviceRepository.deactivateOldTokensForUser(userId, fcmToken);
+
+        // Step 2: Upsert the current token
         userDeviceRepository.findByFcmToken(fcmToken).ifPresentOrElse(
                 device -> {
                     if (!device.getUserId().equals(userId)) {
