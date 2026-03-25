@@ -33,7 +33,7 @@ public class OpenApiConfig {
                                 .url("https://www.apache.org/licenses/LICENSE-2.0")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8081")
+                                .url("http://localhost:9091")
                                 .description("Development server"),
                         new Server()
                                 .url("https://api.clinic.com")

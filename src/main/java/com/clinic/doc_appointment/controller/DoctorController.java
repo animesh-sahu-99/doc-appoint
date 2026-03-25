@@ -1,6 +1,7 @@
 package com.clinic.doc_appointment.controller;
 
 import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
+import com.clinic.doc_appointment.dto.request.DoctorUpdateRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.DoctorResponse;
 import com.clinic.doc_appointment.enums.Specialization;
@@ -32,6 +33,14 @@ public class DoctorController {
     public ResponseEntity<ApiResponse<DoctorResponse>> getDoctorById(@PathVariable String id) {
         DoctorResponse doctor = doctorService.getDoctorById(id);
         return ResponseEntity.ok(ApiResponse.success(doctor, "Doctor found"));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<DoctorResponse>> updateDoctor(
+            @PathVariable String id,
+            @Valid @RequestBody DoctorUpdateRequest request) {
+        DoctorResponse doctor = doctorService.updateDoctor(id, request);
+        return ResponseEntity.ok(ApiResponse.success(doctor, "Doctor profile updated successfully"));
     }
 
     @GetMapping

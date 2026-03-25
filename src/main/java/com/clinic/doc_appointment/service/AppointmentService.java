@@ -14,6 +14,8 @@ import com.clinic.doc_appointment.exception.SlotAlreadyBookedException;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;
+import com.clinic.doc_appointment.service.NotificationService;
+import com.clinic.doc_appointment.enums.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -41,6 +43,7 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
     private final DoctorAvailabilityRepository slotRepository;
+    private final NotificationService notificationService;
 
     /**
      * Book appointment with Optimistic Locking + Retry
@@ -90,6 +93,23 @@ public class AppointmentService {
         // 7. Save Appointment
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Appointment booked successfully: {}", appointmentNumber);
+
+        // 8. Notifications
+        notificationService.sendNotification(
+            patient.getPatientId(),
+            "Appointment Requested",
+            "Your appointment request for " + slot.getSlotDate() + " at " + slot.getStartTime() + " is pending confirmation.",
+            NotificationType.APPOINTMENT_UPDATE,
+            savedAppointment.getAppointmentId()
+        );
+        
+        notificationService.sendNotification(
+            slot.getDoctor().getDoctorId(),
+            "New Appointment Request",
+            patient.getFirstName() + " has requested an appointment for " + slot.getSlotDate() + " at " + slot.getStartTime() + ".",
+            NotificationType.APPOINTMENT_UPDATE,
+            savedAppointment.getAppointmentId()
+        );
 
         return mapToResponse(savedAppointment);
     }
@@ -181,6 +201,15 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment confirmed: {}", appointmentId);
+
+        notificationService.sendNotification(
+            appointment.getPatient().getPatientId(),
+            "Appointment Confirmed",
+            "Your appointment for " + appointment.getSlot().getSlotDate() + " has been confirmed by the doctor.",
+            NotificationType.APPOINTMENT_UPDATE,
+            saved.getAppointmentId()
+        );
+
         return mapToResponse(saved);
     }
 
@@ -208,6 +237,23 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment cancelled: {}", appointmentId);
+
+        notificationService.sendNotification(
+            appointment.getPatient().getPatientId(),
+            "Appointment Cancelled",
+            "Your appointment for " + appointment.getSlot().getSlotDate() + " has been cancelled.",
+            NotificationType.APPOINTMENT_UPDATE,
+            saved.getAppointmentId()
+        );
+
+        notificationService.sendNotification(
+            appointment.getDoctor().getDoctorId(),
+            "Appointment Cancelled",
+            "The appointment for " + appointment.getPatient().getFirstName() + " on " + appointment.getSlot().getSlotDate() + " has been cancelled.",
+            NotificationType.APPOINTMENT_UPDATE,
+            saved.getAppointmentId()
+        );
+
         return mapToResponse(saved);
     }
 
@@ -230,6 +276,15 @@ public class AppointmentService {
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment completed: {}", appointmentId);
+
+        notificationService.sendNotification(
+            appointment.getPatient().getPatientId(),
+            "Appointment Completed",
+            "Thank you for visiting! Hope your consultation went well.",
+            NotificationType.GENERAL_ALERT,
+            saved.getAppointmentId()
+        );
+
         return mapToResponse(saved);
     }
 

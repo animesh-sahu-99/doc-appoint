@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 9091
 spring:
   application:
     name: doc-appointment
@@ -13,7 +13,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
 
 # SpringDoc OpenAPI Configuration
 springdoc:

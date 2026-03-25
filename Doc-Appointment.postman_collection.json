@@ -1,0 +1,356 @@
+{
+  "info": {
+    "name": "Doc-Appointment API",
+    "_postman_id": "doc-appointment-collection-v1",
+    "description": "Complete API collection for the Doctor Appointment System.\n\n**Setup:**\n1. Set `base_url` variable to `http://localhost:9091`\n2. Login using Doctor or Patient login endpoints\n3. Copy the `token` from the response and set it as `auth_token` variable\n4. All protected endpoints will automatically use the Bearer token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:9091", "type": "string" },
+    { "key": "auth_token", "value": "", "type": "string" },
+    { "key": "doctor_id", "value": "", "type": "string" },
+    { "key": "patient_id", "value": "", "type": "string" },
+    { "key": "slot_id", "value": "", "type": "string" },
+    { "key": "appointment_id", "value": "", "type": "string" },
+    { "key": "today", "value": "2026-02-24", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{auth_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Doctor Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('auth_token', json.data.token);",
+                  "    pm.collectionVariables.set('doctor_id', json.data.userId);",
+                  "    console.log('Token saved:', json.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"anjali.sharma@clinic.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/doctor/login", "host": ["{{base_url}}"], "path": ["api", "auth", "doctor", "login"] }
+          }
+        },
+        {
+          "name": "Patient Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set('auth_token', json.data.token);",
+                  "    pm.collectionVariables.set('patient_id', json.data.userId);",
+                  "    console.log('Token saved:', json.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"priya.mehta@gmail.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/patient/login", "host": ["{{base_url}}"], "path": ["api", "auth", "patient", "login"] }
+          }
+        },
+        {
+          "name": "Doctor Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Doctor\",\n  \"email\": \"test.doctor@clinic.com\",\n  \"password\": \"password123\",\n  \"countryCode\": \"+91\",\n  \"phoneNumber\": \"9111222333\",\n  \"specialization\": \"NEUROLOGIST\",\n  \"qualification\": \"MBBS, MD (Neurology)\",\n  \"experienceYears\": 5,\n  \"consultationFee\": 750.00\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/doctor/register", "host": ["{{base_url}}"], "path": ["api", "auth", "doctor", "register"] }
+          }
+        },
+        {
+          "name": "Patient Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Test\",\n  \"lastName\": \"Patient\",\n  \"email\": \"test.patient@gmail.com\",\n  \"password\": \"password123\",\n  \"countryCode\": \"+91\",\n  \"phoneNumber\": \"9777888999\",\n  \"gender\": \"MALE\",\n  \"dateOfBirth\": \"1995-01-01\",\n  \"address\": \"123 Test Street, Mumbai\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/patient/register", "host": ["{{base_url}}"], "path": ["api", "auth", "patient", "register"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👨‍⚕️ Doctors",
+      "item": [
+        {
+          "name": "Get All Doctors",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/doctors", "host": ["{{base_url}}"], "path": ["api", "doctors"] }
+          }
+        },
+        {
+          "name": "Get Doctor by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/doctors/{{doctor_id}}", "host": ["{{base_url}}"], "path": ["api", "doctors", "{{doctor_id}}"] }
+          }
+        },
+        {
+          "name": "Get All Specializations",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/doctors/specializations", "host": ["{{base_url}}"], "path": ["api", "doctors", "specializations"] }
+          }
+        },
+        {
+          "name": "Get Doctors by Specialization",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/doctors/specialization/CARDIOLOGIST",
+              "host": ["{{base_url}}"],
+              "path": ["api", "doctors", "specialization", "CARDIOLOGIST"]
+            }
+          }
+        },
+        {
+          "name": "Get Available Doctors by Specialization",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/doctors/available/specialization/CARDIOLOGIST",
+              "host": ["{{base_url}}"],
+              "path": ["api", "doctors", "available", "specialization", "CARDIOLOGIST"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📅 Slots",
+      "item": [
+        {
+          "name": "Create Single Slot",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"slotDate\": \"2026-02-28\",\n  \"startTime\": \"12:00\",\n  \"endTime\": \"12:30\",\n  \"durationMinutes\": 30\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/slots", "host": ["{{base_url}}"], "path": ["api", "slots"] }
+          }
+        },
+        {
+          "name": "Create Bulk Slots",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"doctorId\": \"{{doctor_id}}\",\n  \"startDate\": \"2026-03-01\",\n  \"endDate\": \"2026-03-03\",\n  \"startTime\": \"09:00\",\n  \"endTime\": \"12:00\",\n  \"durationMinutes\": 30\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/slots/bulk", "host": ["{{base_url}}"], "path": ["api", "slots", "bulk"] }
+          }
+        },
+        {
+          "name": "Get Slot by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}"] }
+          }
+        },
+        {
+          "name": "Get Available Slots by Doctor",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/slots/doctor/{{doctor_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "doctor", "{{doctor_id}}"] }
+          }
+        },
+        {
+          "name": "Get Available Slots by Doctor + Date",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/slots/doctor/{{doctor_id}}/date/{{today}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "slots", "doctor", "{{doctor_id}}", "date", "{{today}}"]
+            }
+          }
+        },
+        {
+          "name": "Get ALL Slots by Doctor + Date (incl. booked)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/slots/doctor/{{doctor_id}}/date/{{today}}/all",
+              "host": ["{{base_url}}"],
+              "path": ["api", "slots", "doctor", "{{doctor_id}}", "date", "{{today}}", "all"]
+            }
+          }
+        },
+        {
+          "name": "Get Slots by Doctor + Date Range",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/slots/doctor/{{doctor_id}}/range?startDate=2026-02-24&endDate=2026-02-26",
+              "host": ["{{base_url}}"],
+              "path": ["api", "slots", "doctor", "{{doctor_id}}", "range"],
+              "query": [
+                { "key": "startDate", "value": "2026-02-24" },
+                { "key": "endDate", "value": "2026-02-26" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Slot by ID",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/api/slots/{{slot_id}}", "host": ["{{base_url}}"], "path": ["api", "slots", "{{slot_id}}"] }
+          }
+        },
+        {
+          "name": "Delete All Slots by Doctor + Date",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/slots/doctor/{{doctor_id}}/date/{{today}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "slots", "doctor", "{{doctor_id}}", "date", "{{today}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📋 Appointments",
+      "item": [
+        {
+          "name": "Book Appointment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patientId\": \"{{patient_id}}\",\n  \"doctorId\": \"{{doctor_id}}\",\n  \"slotId\": \"{{slot_id}}\",\n  \"reasonForVisit\": \"General checkup\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/appointments/book", "host": ["{{base_url}}"], "path": ["api", "appointments", "book"] }
+          }
+        },
+        {
+          "name": "Get Appointment by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/{{appointment_id}}", "host": ["{{base_url}}"], "path": ["api", "appointments", "{{appointment_id}}"] }
+          }
+        },
+        {
+          "name": "Get Appointment by Number",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/number/APT-2024-0001", "host": ["{{base_url}}"], "path": ["api", "appointments", "number", "APT-2024-0001"] }
+          }
+        },
+        {
+          "name": "Get All Doctor Appointments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/doctor/{{doctor_id}}", "host": ["{{base_url}}"], "path": ["api", "appointments", "doctor", "{{doctor_id}}"] }
+          }
+        },
+        {
+          "name": "Get Upcoming Doctor Appointments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/doctor/{{doctor_id}}/upcoming", "host": ["{{base_url}}"], "path": ["api", "appointments", "doctor", "{{doctor_id}}", "upcoming"] }
+          }
+        },
+        {
+          "name": "Get Doctor Appointments by Date",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/appointments/doctor/{{doctor_id}}/date/{{today}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "appointments", "doctor", "{{doctor_id}}", "date", "{{today}}"]
+            }
+          }
+        },
+        {
+          "name": "Get All Patient Appointments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/patient/{{patient_id}}", "host": ["{{base_url}}"], "path": ["api", "appointments", "patient", "{{patient_id}}"] }
+          }
+        },
+        {
+          "name": "Get Upcoming Patient Appointments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/appointments/patient/{{patient_id}}/upcoming", "host": ["{{base_url}}"], "path": ["api", "appointments", "patient", "{{patient_id}}", "upcoming"] }
+          }
+        },
+        {
+          "name": "✅ Confirm Appointment",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/api/appointments/{{appointment_id}}/confirm", "host": ["{{base_url}}"], "path": ["api", "appointments", "{{appointment_id}}", "confirm"] }
+          }
+        },
+        {
+          "name": "❌ Cancel Appointment",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/api/appointments/{{appointment_id}}/cancel", "host": ["{{base_url}}"], "path": ["api", "appointments", "{{appointment_id}}", "cancel"] }
+          }
+        },
+        {
+          "name": "🏥 Complete Appointment",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/api/appointments/{{appointment_id}}/complete", "host": ["{{base_url}}"], "path": ["api", "appointments", "{{appointment_id}}", "complete"] }
+          }
+        },
+        {
+          "name": "⚠️ Mark No-Show",
+          "request": {
+            "method": "PUT",
+            "url": { "raw": "{{base_url}}/api/appointments/{{appointment_id}}/no-show", "host": ["{{base_url}}"], "path": ["api", "appointments", "{{appointment_id}}", "no-show"] }
+          }
+        }
+      ]
+    }
+  ]
+}

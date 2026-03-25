@@ -1,6 +1,7 @@
 package com.clinic.doc_appointment.service;
 
 import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
+import com.clinic.doc_appointment.dto.request.DoctorUpdateRequest;
 import com.clinic.doc_appointment.dto.response.DoctorResponse;
 import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.enums.Specialization;
@@ -54,6 +55,31 @@ public class DoctorService {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
         return mapToResponse(doctor);
+    }
+
+    @Transactional
+    public DoctorResponse updateDoctor(String doctorId, DoctorUpdateRequest request) {
+        // Validate doctor exists first
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+
+        // Use direct JPQL update to avoid CascadeType.ALL cascade issues on appointments/slots
+        String name = (request.getName() != null && !request.getName().isBlank()) ? request.getName() : null;
+        String qualification = (request.getQualification() != null && !request.getQualification().isBlank()) ? request.getQualification() : null;
+
+        doctorRepository.updateProfileFields(
+                doctorId,
+                name,
+                qualification,
+                request.getExperienceYears(),
+                request.getConsultationFee(),
+                request.getAbout()
+        );
+
+        // Re-fetch updated doctor and return as response
+        Doctor updated = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found after update"));
+        return mapToResponse(updated);
     }
 
     public List<DoctorResponse> getAllDoctors() {
