@@ -294,6 +294,39 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
+    public AppointmentResponse updateAppointmentNotes(String appointmentId, String notes) {
+        log.info("Updating notes for appointment: {}", appointmentId);
+
+        Appointment appointment = findAppointmentById(appointmentId);
+
+        if (appointment.getStatus() == AppointmentStatus.CANCELLED ||
+            appointment.getStatus() == AppointmentStatus.NO_SHOW) {
+            throw new InvalidStateException("Cannot add notes to a cancelled or no-show appointment.");
+        }
+
+        appointment.setNotes(notes);
+        Appointment saved = appointmentRepository.save(appointment);
+
+        log.info("Successfully updated notes for appointment: {}", appointmentId);
+
+        // Notify patient that clinical notes/prescriptions were added
+        notificationService.sendNotification(
+            appointment.getPatient().getPatientId(),
+            "Clinical Notes Updated",
+            "Dr. " + appointment.getDoctor().getLastName() + " has added notes/prescriptions to your recent consultation.",
+            NotificationType.APPOINTMENT_UPDATE,
+            saved.getAppointmentId()
+        );
+
+        return mapToResponse(saved);
+    }
+
+    @Transactional
+    @Retryable(
+            retryFor = {OptimisticLockingFailureException.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100, multiplier = 2)
+    )
     public AppointmentResponse markNoShow(String appointmentId) {
         log.info("Marking appointment as no-show: {}", appointmentId);
 

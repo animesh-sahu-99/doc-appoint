@@ -1,6 +1,7 @@
 package com.clinic.doc_appointment.controller;
 
 import com.clinic.doc_appointment.dto.request.BookAppointmentRequest;
+import com.clinic.doc_appointment.dto.request.UpdateAppointmentNotesRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.AppointmentResponse;
 import com.clinic.doc_appointment.service.AppointmentService;
@@ -134,5 +135,16 @@ public class AppointmentController {
         AppointmentResponse response = appointmentService.markNoShow(appointmentId);
 
         return ResponseEntity.ok(ApiResponse.success(response, "Appointment marked as no-show"));
+    }
+
+    @PutMapping("/{appointmentId}/notes")
+    @Operation(summary = "Update Appointment Notes", description = "Allows doctors to add or update clinical notes/prescriptions.")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> updateNotes(
+            @PathVariable String appointmentId,
+            @Valid @RequestBody UpdateAppointmentNotesRequest request) {
+
+        AppointmentResponse response = appointmentService.updateAppointmentNotes(appointmentId, request.getNotes());
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Notes updated successfully"));
     }
 }
