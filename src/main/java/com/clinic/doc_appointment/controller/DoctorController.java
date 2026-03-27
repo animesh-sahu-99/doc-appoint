@@ -1,5 +1,6 @@
 package com.clinic.doc_appointment.controller;
 
+import com.clinic.doc_appointment.dto.request.DoctorFilterRequest;
 import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
 import com.clinic.doc_appointment.dto.request.DoctorUpdateRequest;
 import com.clinic.doc_appointment.dto.response.ApiResponse;
@@ -47,6 +48,19 @@ public class DoctorController {
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> getAllDoctors() {
         List<DoctorResponse> doctors = doctorService.getAllDoctors();
         return ResponseEntity.ok(ApiResponse.success(doctors, "Doctors retrieved"));
+    }
+
+    /**
+     * Unified search endpoint with optional filters.
+     * All query params are optional. When omitted, behaves like GET /api/doctors.
+     *
+     * GET /api/doctors/search?name=john&specialization=CARDIOLOGIST&minFee=0&maxFee=500&minExperience=5&availableOnly=true
+     */
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<DoctorResponse>>> searchDoctors(
+            @ModelAttribute DoctorFilterRequest filters) {
+        List<DoctorResponse> doctors = doctorService.searchDoctors(filters);
+        return ResponseEntity.ok(ApiResponse.success(doctors, "Doctors found"));
     }
 
     // ✅ Get by specialization enum

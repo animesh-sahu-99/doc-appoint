@@ -1,5 +1,6 @@
 package com.clinic.doc_appointment.service;
 
+import com.clinic.doc_appointment.dto.request.DoctorFilterRequest;
 import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
 import com.clinic.doc_appointment.dto.request.DoctorUpdateRequest;
 import com.clinic.doc_appointment.dto.response.DoctorResponse;
@@ -8,7 +9,9 @@ import com.clinic.doc_appointment.enums.Specialization;
 import com.clinic.doc_appointment.exception.DuplicateResourceException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.repository.DoctorRepository;
+import com.clinic.doc_appointment.specification.DoctorSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,6 +87,18 @@ public class DoctorService {
 
     public List<DoctorResponse> getAllDoctors() {
         return doctorRepository.findByIsActiveTrue()
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Dynamic multi-filter search. All filter params are optional.
+     * Falls back to "all active doctors" when no filters are set.
+     */
+    public List<DoctorResponse> searchDoctors(DoctorFilterRequest filters) {
+        Specification<Doctor> spec = DoctorSpecification.withFilters(filters);
+        return doctorRepository.findAll(spec)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
