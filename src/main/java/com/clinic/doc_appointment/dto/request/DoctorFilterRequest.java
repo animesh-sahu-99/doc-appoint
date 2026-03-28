@@ -27,6 +27,9 @@ public class DoctorFilterRequest {
     /** Minimum experience in years (inclusive) */
     private Integer minExperience;
 
+    /** Minimum average rating (inclusive, e.g., 4.0) */
+    private Double minRating;
+
     /**
      * When true, only returns doctors who have at least one available slot.
      * Default: false (return all active doctors regardless of slot availability)

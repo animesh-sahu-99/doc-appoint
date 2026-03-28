@@ -38,4 +38,12 @@ public class AppointmentResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String notes;
+
+    // Review Info (if COMPLETED)
+    private String reviewId;
+    private Integer rating;
+    private String comment;
+    private String doctorReply;
+    private LocalDateTime repliedAt;
+    private LocalDateTime reviewCreatedAt;
 }

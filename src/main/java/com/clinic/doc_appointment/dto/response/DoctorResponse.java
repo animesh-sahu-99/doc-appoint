@@ -20,6 +20,8 @@ public class DoctorResponse {
     private BigDecimal consultationFee;
     private String profileImage;
     private String about;
+    private Double averageRating;
+    private Integer totalReviews;
     private Boolean isActive;
 
 }

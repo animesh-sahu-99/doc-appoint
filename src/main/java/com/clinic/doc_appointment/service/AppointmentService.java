@@ -44,6 +44,7 @@ public class AppointmentService {
     private final PatientRepository patientRepository;
     private final DoctorAvailabilityRepository slotRepository;
     private final NotificationService notificationService;
+    private final com.clinic.doc_appointment.repository.ReviewRepository reviewRepository;
 
     /**
      * Book appointment with Optimistic Locking + Retry

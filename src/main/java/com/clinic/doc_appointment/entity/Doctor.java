@@ -75,6 +75,10 @@ public class Doctor {
     @Column(columnDefinition = "TEXT")
     private String about;
 
+    private Double averageRating = 0.0;
+
+    private Integer totalReviews = 0;
+
     private Boolean isActive = true;
 
     @JsonManagedReference

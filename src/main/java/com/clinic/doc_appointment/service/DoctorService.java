@@ -132,9 +132,10 @@ public class DoctorService {
     }
 
     private DoctorResponse mapToResponse(Doctor doctor) {
+        String fullName = doctor.getFirstName() + (doctor.getLastName() != null ? " " + doctor.getLastName() : "");
         return new DoctorResponse()
                 .setDoctorId(doctor.getDoctorId())
-                .setName(doctor.getFirstName())
+                .setName(fullName)
                 .setEmail(doctor.getEmail())
                 .setPhone(doctor.getPhoneNumber())
                 .setSpecialization(doctor.getSpecialization())
@@ -145,6 +146,8 @@ public class DoctorService {
                 .setConsultationFee(doctor.getConsultationFee())
                 .setProfileImage(doctor.getProfileImage())
                 .setAbout(doctor.getAbout())
+                .setAverageRating(doctor.getAverageRating())
+                .setTotalReviews(doctor.getTotalReviews())
                 .setIsActive(doctor.getIsActive());
     }
 

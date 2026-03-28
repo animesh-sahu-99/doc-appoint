@@ -56,6 +56,12 @@ public class DoctorSpecification {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("experienceYears"), minExp));
             }
 
+            // Minimum Rating
+            Double minRating = filters.getMinRating();
+            if (minRating != null && minRating > 0) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("averageRating"), minRating));
+            }
+
             // Available only: doctor must have at least one available slot
             Boolean availableOnly = filters.getAvailableOnly();
             if (Boolean.TRUE.equals(availableOnly)) {
