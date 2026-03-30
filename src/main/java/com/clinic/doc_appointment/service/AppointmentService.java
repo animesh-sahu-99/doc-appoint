@@ -371,7 +371,7 @@ public class AppointmentService {
         String doctorName = doctor.getFirstName() +
                 (doctor.getLastName() != null ? " " + doctor.getLastName() : "");
 
-        return new AppointmentResponse()
+        AppointmentResponse response = new AppointmentResponse()
                 .setAppointmentId(appointment.getAppointmentId())
                 .setAppointmentNumber(appointment.getAppointmentNumber())
                 .setPatientId(patient.getPatientId())
@@ -391,6 +391,20 @@ public class AppointmentService {
                 .setNotes(appointment.getNotes())
                 .setCreatedAt(appointment.getCreatedAt())
                 .setUpdatedAt(appointment.getUpdatedAt());
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            reviewRepository.findByAppointmentAppointmentId(appointment.getAppointmentId())
+                    .ifPresent(review -> {
+                        response.setReviewId(review.getReviewId())
+                                .setRating(review.getRating())
+                                .setComment(review.getComment())
+                                .setDoctorReply(review.getDoctorReply())
+                                .setRepliedAt(review.getRepliedAt())
+                                .setReviewCreatedAt(review.getCreatedAt());
+                    });
+        }
+
+        return response;
     }
 
 }
