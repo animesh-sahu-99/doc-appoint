@@ -29,3 +29,14 @@ springdoc:
 jwt:
   secret: doc-appointment-super-secret-key-change-in-production-2024
   expiration: 86400000  # 24 hours in milliseconds
+
+# File Storage Configuration
+file:
+  upload-dir: uploads
+  encryption:
+    secret: my-secret-encryption-key-32bytes! # 32 chars for AES-256
+
+# Spring Multipart Configuration
+spring.servlet.multipart:
+  max-file-size: 10MB
+  max-request-size: 10MB

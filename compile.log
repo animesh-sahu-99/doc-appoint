@@ -1,4 +1,4 @@
-﻿[INFO] Scanning for projects...
+[INFO] Scanning for projects...
 [INFO] 
 [INFO] ---------------------< com.clinic:doc-appointment >---------------------
 [INFO] Building doc-appointment 0.0.1-SNAPSHOT
@@ -7,16 +7,63 @@
 [INFO] 
 [INFO] --- resources:3.3.1:resources (default-resources) @ doc-appointment ---
 [INFO] Copying 1 resource from src\main\resources to target\classes
-[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
 [INFO] 
 [INFO] --- compiler:3.14.1:compile (default-compile) @ doc-appointment ---
 [INFO] Recompiling the module because of changed source code.
-[INFO] Compiling 72 source files with javac [debug parameters release 17] to target\classes
-[INFO] /C:/Users/HP Pavilion Gaming/Desktop/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/config/SecurityConfig.java: C:\Users\HP Pavilion Gaming\Desktop\doc-appointment\doc-appointment\src\main\java\com\clinic\doc_appointment\config\SecurityConfig.java uses or overrides a deprecated API.
-[INFO] /C:/Users/HP Pavilion Gaming/Desktop/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/config/SecurityConfig.java: Recompile with -Xlint:deprecation for details.
+[INFO] Compiling 95 source files with javac [debug parameters release 17] to target\classes
+[INFO] -------------------------------------------------------------
+[WARNING] COMPILATION WARNING : 
+[INFO] -------------------------------------------------------------
+[WARNING] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/entity/UserDevice.java:[36,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[INFO] 1 warning
+[INFO] -------------------------------------------------------------
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[6,43] cannot find symbol
+  symbol:   class CustomUserDetails
+  location: package com.clinic.doc_appointment.security
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[38,38] cannot find symbol
+  symbol:   class CustomUserDetails
+  location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[58,38] cannot find symbol
+  symbol:   class CustomUserDetails
+  location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[77,38] cannot find symbol
+  symbol:   class CustomUserDetails
+  location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[103,38] cannot find symbol
+  symbol:   class CustomUserDetails
+  location: class com.clinic.doc_appointment.controller.DocumentController
+[INFO] 5 errors 
+[INFO] -------------------------------------------------------------
 [INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
+[INFO] BUILD FAILURE
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  8.386 s
-[INFO] Finished at: 2026-03-21T00:14:22+05:30
+[INFO] Total time:  9.251 s
+[INFO] Finished at: 2026-04-01T20:51:26+05:30
 [INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project doc-appointment: Compilation failure: Compilation failure: 
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[6,43] cannot find symbol
+[ERROR]   symbol:   class CustomUserDetails
+[ERROR]   location: package com.clinic.doc_appointment.security
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[38,38] cannot find symbol
+[ERROR]   symbol:   class CustomUserDetails
+[ERROR]   location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[58,38] cannot find symbol
+[ERROR]   symbol:   class CustomUserDetails
+[ERROR]   location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[77,38] cannot find symbol
+[ERROR]   symbol:   class CustomUserDetails
+[ERROR]   location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] /D:/My Stuff/New folder/Projects/doc-appointment/doc-appointment/src/main/java/com/clinic/doc_appointment/controller/DocumentController.java:[103,38] cannot find symbol
+[ERROR]   symbol:   class CustomUserDetails
+[ERROR]   location: class com.clinic.doc_appointment.controller.DocumentController
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
