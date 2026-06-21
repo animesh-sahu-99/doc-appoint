@@ -84,20 +84,21 @@ public class DocumentService {
         log.info("Document {} deleted successfully by {}", documentId, userId);
     }
 
-    public Resource downloadDocumentAsResource(String documentId, String userId, String role) {
+    /**
+     * Single DB call: validates access, returns both metadata and the decrypted resource stream.
+     */
+    public DocumentDownload downloadDocument(String documentId, String userId, String role) {
         AppointmentDocument doc = documentRepository.findById(documentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
-                
-        // ensure requester is authorized
+
         validateAccess(doc.getAppointment(), userId, role);
 
-        return fileStorageService.loadFileAsResource(doc.getFileUrl());
+        Resource resource = fileStorageService.loadFileAsResource(doc.getFileUrl());
+        return new DocumentDownload(doc, resource);
     }
-    
-    public AppointmentDocument getDocumentMetadata(String documentId) {
-        return documentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found"));
-    }
+
+    /** Holds metadata + decrypted stream together to avoid a second DB round-trip. */
+    public record DocumentDownload(AppointmentDocument metadata, Resource resource) {}
 
     private void validateAccess(Appointment appointment, String userId, String role) {
         // Patient check

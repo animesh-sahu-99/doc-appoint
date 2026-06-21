@@ -2,7 +2,6 @@ package com.clinic.doc_appointment.controller;
 
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.DocumentResponse;
-import com.clinic.doc_appointment.entity.AppointmentDocument;
 import com.clinic.doc_appointment.security.UserPrincipal;
 import com.clinic.doc_appointment.service.document.DocumentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -79,21 +78,19 @@ public class DocumentController {
         String role = userPrincipal.getRole().replace("ROLE_", "");
         String userId = userPrincipal.getId();
 
-        // Check auth inside the service and stream the decrypted file
-        Resource resource = documentService.downloadDocumentAsResource(documentId, userId, role);
-        
-        // Let's get metadata so we know what Content-Type to send
-        AppointmentDocument metadata = documentService.getDocumentMetadata(documentId);
+        // Single DB call: validates auth + returns metadata + streams resource together
+        DocumentService.DocumentDownload download = documentService.downloadDocument(documentId, userId, role);
 
-        String contentType = metadata.getFileType();
-        if (contentType == null) {
+        String contentType = download.metadata().getFileType();
+        if (contentType == null || contentType.isBlank()) {
             contentType = "application/octet-stream";
         }
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + metadata.getFileName() + "\"")
-                .body(resource);
+                // 'attachment' tells the HTTP client: save this as a file (not display inline)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + download.metadata().getFileName() + "\"")
+                .body(download.resource());
     }
     
     @Operation(summary = "Delete an uploaded document")
