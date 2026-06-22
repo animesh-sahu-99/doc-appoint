@@ -33,6 +33,11 @@ public class Appointment {
         }
     }
 
+    // Optimistic locking - prevents concurrent edits (status/notes) from silently clobbering each other.
+    // Works with the @Retryable handlers in AppointmentService for confirm/cancel/complete/notes/no-show.
+    @Version
+    private Long version;
+
     // Unique appointment reference number
     @Column(unique = true, nullable = false)
     private String appointmentNumber;

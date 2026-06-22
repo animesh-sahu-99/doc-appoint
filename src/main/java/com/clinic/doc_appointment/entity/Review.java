@@ -1,11 +1,14 @@
 package com.clinic.doc_appointment.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.hibernate.annotations.Check;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -13,6 +16,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "reviews")
+@Check(name = "chk_review_rating", constraints = "rating BETWEEN 1 AND 5")
 @Getter
 @Setter
 @Accessors(chain = true)
@@ -41,6 +45,8 @@ public class Review {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    @Min(value = 1, message = "Rating must be at least 1")
+    @Max(value = 5, message = "Rating cannot exceed 5")
     @Column(nullable = false)
     private Integer rating; // 1 to 5
 
