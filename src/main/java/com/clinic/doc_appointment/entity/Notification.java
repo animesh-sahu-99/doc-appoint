@@ -10,7 +10,8 @@ import lombok.experimental.Accessors;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "notifications", indexes = {
@@ -30,7 +31,7 @@ public class Notification {
     @PrePersist
     public void ensureId() {
         if (id == null) {
-            this.id = "NOT-" + UUID.randomUUID();
+            this.id = IdGenerator.withPrefix(IdPrefix.NOTIFICATION);
         }
     }
 

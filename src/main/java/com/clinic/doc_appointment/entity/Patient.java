@@ -6,7 +6,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 import com.clinic.doc_appointment.enums.Gender;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -38,7 +39,7 @@ public class Patient {
     @PrePersist
     public void ensureId(){
         if(patientId == null){
-            this.patientId = "PAT-" + UUID.randomUUID();
+            this.patientId = IdGenerator.withPrefix(IdPrefix.PATIENT);
         }
     }
 

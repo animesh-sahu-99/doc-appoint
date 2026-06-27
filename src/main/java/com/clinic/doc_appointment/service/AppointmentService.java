@@ -2,22 +2,22 @@ package com.clinic.doc_appointment.service;
 
 import com.clinic.doc_appointment.dto.request.BookAppointmentRequest;
 import com.clinic.doc_appointment.dto.response.AppointmentResponse;
+import com.clinic.doc_appointment.domain.state.AppointmentTransitionValidator;
 import com.clinic.doc_appointment.entity.Appointment;
-import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.entity.DoctorAvailability;
 import com.clinic.doc_appointment.entity.Patient;
 import com.clinic.doc_appointment.enums.AppointmentStatus;
+import com.clinic.doc_appointment.event.AppointmentChangedEvent;
 import com.clinic.doc_appointment.exception.BookingConflictException;
-import com.clinic.doc_appointment.exception.InvalidStateException;
-import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.exception.SlotAlreadyBookedException;
+import com.clinic.doc_appointment.mapper.AppointmentMapper;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;
-import com.clinic.doc_appointment.service.NotificationService;
-import com.clinic.doc_appointment.enums.NotificationType;
+import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
@@ -31,7 +31,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -43,8 +42,9 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
     private final DoctorAvailabilityRepository slotRepository;
-    private final NotificationService notificationService;
-    private final com.clinic.doc_appointment.repository.ReviewRepository reviewRepository;
+    private final AppointmentMapper appointmentMapper;
+    private final AppointmentTransitionValidator transitionValidator;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Book appointment with Optimistic Locking + Retry
@@ -60,14 +60,12 @@ public class AppointmentService {
                 request.getPatientId(), request.getSlotId());
 
         // 1. Validate Patient
-        Patient patient = patientRepository.findById(request.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Patient not found with ID: " + request.getPatientId()));
+        Patient patient = EntityFinder.findOrThrow(patientRepository, request.getPatientId(),
+                "Patient not found with ID: " + request.getPatientId());
 
         // 2. Get Slot
-        DoctorAvailability slot = slotRepository.findById(request.getSlotId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Slot not found with ID: " + request.getSlotId()));
+        DoctorAvailability slot = EntityFinder.findOrThrow(slotRepository, request.getSlotId(),
+                "Slot not found with ID: " + request.getSlotId());
 
         // 3. Check Slot Availability
         if (!slot.getIsAvailable()) {
@@ -95,24 +93,10 @@ public class AppointmentService {
         Appointment savedAppointment = appointmentRepository.save(appointment);
         log.info("Appointment booked successfully: {}", appointmentNumber);
 
-        // 8. Notifications
-        notificationService.sendNotification(
-            patient.getPatientId(),
-            "Appointment Requested",
-            "Your appointment request for " + slot.getSlotDate() + " at " + slot.getStartTime() + " is pending confirmation.",
-            NotificationType.APPOINTMENT_UPDATE,
-            savedAppointment.getAppointmentId()
-        );
-        
-        notificationService.sendNotification(
-            slot.getDoctor().getDoctorId(),
-            "New Appointment Request",
-            patient.getFirstName() + " has requested an appointment for " + slot.getSlotDate() + " at " + slot.getStartTime() + ".",
-            NotificationType.APPOINTMENT_UPDATE,
-            savedAppointment.getAppointmentId()
-        );
+        // 8. Notify (Observer): patient + doctor are notified by AppointmentNotificationListener
+        eventPublisher.publishEvent(event(AppointmentChangedEvent.Kind.BOOKED, savedAppointment));
 
-        return mapToResponse(savedAppointment);
+        return appointmentMapper.toResponse(savedAppointment);
     }
 
     /**
@@ -138,49 +122,34 @@ public class AppointmentService {
 
     public AppointmentResponse getAppointmentById(String appointmentId) {
         Appointment appointment = findAppointmentById(appointmentId);
-        return mapToResponse(appointment);
+        return appointmentMapper.toResponse(appointment);
     }
 
     public AppointmentResponse getAppointmentByNumber(String appointmentNumber) {
-        Appointment appointment = appointmentRepository.findByAppointmentNumber(appointmentNumber)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Appointment not found with number: " + appointmentNumber));
-        return mapToResponse(appointment);
+        Appointment appointment = EntityFinder.orThrow(
+                appointmentRepository.findByAppointmentNumber(appointmentNumber),
+                "Appointment not found with number: " + appointmentNumber);
+        return appointmentMapper.toResponse(appointment);
     }
 
     public List<AppointmentResponse> getPatientAppointments(String patientId) {
-        return appointmentRepository.findByPatientOrderByDateDesc(patientId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return appointmentMapper.toResponseList(appointmentRepository.findByPatientOrderByDateDesc(patientId));
     }
 
     public List<AppointmentResponse> getUpcomingPatientAppointments(String patientId) {
-        return appointmentRepository.findUpcomingByPatient(patientId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return appointmentMapper.toResponseList(appointmentRepository.findUpcomingByPatient(patientId));
     }
 
     public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
-        return appointmentRepository.findByDoctorDoctorId(doctorId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return appointmentMapper.toResponseList(appointmentRepository.findByDoctorDoctorId(doctorId));
     }
 
     public List<AppointmentResponse> getUpcomingDoctorAppointments(String doctorId) {
-        return appointmentRepository.findUpcomingByDoctor(doctorId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return appointmentMapper.toResponseList(appointmentRepository.findUpcomingByDoctor(doctorId));
     }
 
     public List<AppointmentResponse> getDoctorAppointmentsByDate(String doctorId, LocalDate date) {
-        return appointmentRepository.findByDoctorAndDate(doctorId, date)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return appointmentMapper.toResponseList(appointmentRepository.findByDoctorAndDate(doctorId, date));
     }
 
     @Transactional
@@ -193,25 +162,15 @@ public class AppointmentService {
         log.info("Confirming appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
-
-        if (appointment.getStatus() != AppointmentStatus.PENDING) {
-            throw new InvalidStateException("Only pending appointments can be confirmed");
-        }
+        transitionValidator.assertCanConfirm(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment confirmed: {}", appointmentId);
+        eventPublisher.publishEvent(event(AppointmentChangedEvent.Kind.CONFIRMED, saved));
 
-        notificationService.sendNotification(
-            appointment.getPatient().getPatientId(),
-            "Appointment Confirmed",
-            "Your appointment for " + appointment.getSlot().getSlotDate() + " has been confirmed by the doctor.",
-            NotificationType.APPOINTMENT_UPDATE,
-            saved.getAppointmentId()
-        );
-
-        return mapToResponse(saved);
+        return appointmentMapper.toResponse(saved);
     }
 
     @Transactional
@@ -224,38 +183,16 @@ public class AppointmentService {
         log.info("Cancelling appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
-
-        if (appointment.getStatus() == AppointmentStatus.CANCELLED) {
-            throw new InvalidStateException("Appointment is already cancelled");
-        }
-
-        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
-            throw new InvalidStateException("Cannot cancel a completed appointment");
-        }
+        transitionValidator.assertCanCancel(appointment.getStatus());
 
         // Update status - slot will be freed automatically by @PostUpdate listener
         appointment.setStatus(AppointmentStatus.CANCELLED);
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment cancelled: {}", appointmentId);
+        eventPublisher.publishEvent(event(AppointmentChangedEvent.Kind.CANCELLED, saved));
 
-        notificationService.sendNotification(
-            appointment.getPatient().getPatientId(),
-            "Appointment Cancelled",
-            "Your appointment for " + appointment.getSlot().getSlotDate() + " has been cancelled.",
-            NotificationType.APPOINTMENT_UPDATE,
-            saved.getAppointmentId()
-        );
-
-        notificationService.sendNotification(
-            appointment.getDoctor().getDoctorId(),
-            "Appointment Cancelled",
-            "The appointment for " + appointment.getPatient().getFirstName() + " on " + appointment.getSlot().getSlotDate() + " has been cancelled.",
-            NotificationType.APPOINTMENT_UPDATE,
-            saved.getAppointmentId()
-        );
-
-        return mapToResponse(saved);
+        return appointmentMapper.toResponse(saved);
     }
 
     @Transactional
@@ -268,25 +205,15 @@ public class AppointmentService {
         log.info("Completing appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new InvalidStateException("Only confirmed appointments can be completed");
-        }
+        transitionValidator.assertCanComplete(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment completed: {}", appointmentId);
+        eventPublisher.publishEvent(event(AppointmentChangedEvent.Kind.COMPLETED, saved));
 
-        notificationService.sendNotification(
-            appointment.getPatient().getPatientId(),
-            "Appointment Completed",
-            "Thank you for visiting! Hope your consultation went well.",
-            NotificationType.GENERAL_ALERT,
-            saved.getAppointmentId()
-        );
-
-        return mapToResponse(saved);
+        return appointmentMapper.toResponse(saved);
     }
 
     @Transactional
@@ -299,27 +226,15 @@ public class AppointmentService {
         log.info("Updating notes for appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
-
-        if (appointment.getStatus() == AppointmentStatus.CANCELLED ||
-            appointment.getStatus() == AppointmentStatus.NO_SHOW) {
-            throw new InvalidStateException("Cannot add notes to a cancelled or no-show appointment.");
-        }
+        transitionValidator.assertCanEditNotes(appointment.getStatus());
 
         appointment.setNotes(notes);
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Successfully updated notes for appointment: {}", appointmentId);
+        eventPublisher.publishEvent(event(AppointmentChangedEvent.Kind.NOTES_UPDATED, saved));
 
-        // Notify patient that clinical notes/prescriptions were added
-        notificationService.sendNotification(
-            appointment.getPatient().getPatientId(),
-            "Clinical Notes Updated",
-            "Dr. " + appointment.getDoctor().getLastName() + " has added notes/prescriptions to your recent consultation.",
-            NotificationType.APPOINTMENT_UPDATE,
-            saved.getAppointmentId()
-        );
-
-        return mapToResponse(saved);
+        return appointmentMapper.toResponse(saved);
     }
 
     @Transactional
@@ -332,25 +247,21 @@ public class AppointmentService {
         log.info("Marking appointment as no-show: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
-
-        if (appointment.getStatus() == AppointmentStatus.CANCELLED ||
-                appointment.getStatus() == AppointmentStatus.COMPLETED) {
-            throw new InvalidStateException("Cannot mark cancelled/completed appointment as no-show");
-        }
+        transitionValidator.assertCanMarkNoShow(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.NO_SHOW);
         Appointment saved = appointmentRepository.save(appointment);
 
+        // No notification is sent for a no-show (unchanged behavior).
         log.info("Appointment marked as no-show: {}", appointmentId);
-        return mapToResponse(saved);
+        return appointmentMapper.toResponse(saved);
     }
 
     // =============== HELPER METHODS ===============
 
     private Appointment findAppointmentById(String appointmentId) {
-        return appointmentRepository.findById(appointmentId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Appointment not found with ID: " + appointmentId));
+        return EntityFinder.findOrThrow(appointmentRepository, appointmentId,
+                "Appointment not found with ID: " + appointmentId);
     }
 
     private String generateAppointmentNumber() {
@@ -360,51 +271,16 @@ public class AppointmentService {
         return "APT" + timestamp + random;
     }
 
-    private AppointmentResponse mapToResponse(Appointment appointment) {
-        Doctor doctor = appointment.getDoctor();
-        Patient patient = appointment.getPatient();
-        DoctorAvailability slot = appointment.getSlot();
-
-        String patientName = patient.getFirstName() +
-                (patient.getLastName() != null ? " " + patient.getLastName() : "");
-
-        String doctorName = doctor.getFirstName() +
-                (doctor.getLastName() != null ? " " + doctor.getLastName() : "");
-
-        AppointmentResponse response = new AppointmentResponse()
-                .setAppointmentId(appointment.getAppointmentId())
-                .setAppointmentNumber(appointment.getAppointmentNumber())
-                .setPatientId(patient.getPatientId())
-                .setPatientName(patientName)
-                .setPatientPhone(patient.getCountryCode() + " " + patient.getPhoneNumber())
-                .setDoctorId(doctor.getDoctorId())
-                .setDoctorName(doctorName)
-                .setSpecialization(String.valueOf(doctor.getSpecialization()))
-                .setConsultationFee(doctor.getConsultationFee())
-                .setSlotId(slot.getSlotId())
-                .setAppointmentDate(slot.getSlotDate())
-                .setStartTime(slot.getStartTime())
-                .setEndTime(slot.getEndTime())
-                .setDurationMinutes(slot.getDurationMinutes())
-                .setStatus(appointment.getStatus())
-                .setReasonForVisit(appointment.getReasonForVisit())
-                .setNotes(appointment.getNotes())
-                .setCreatedAt(appointment.getCreatedAt())
-                .setUpdatedAt(appointment.getUpdatedAt());
-
-        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
-            reviewRepository.findByAppointmentAppointmentId(appointment.getAppointmentId())
-                    .ifPresent(review -> {
-                        response.setReviewId(review.getReviewId())
-                                .setRating(review.getRating())
-                                .setComment(review.getComment())
-                                .setDoctorReply(review.getDoctorReply())
-                                .setRepliedAt(review.getRepliedAt())
-                                .setReviewCreatedAt(review.getCreatedAt());
-                    });
-        }
-
-        return response;
+    /** Snapshots the data notification listeners need, captured while the entity is still managed. */
+    private AppointmentChangedEvent event(AppointmentChangedEvent.Kind kind, Appointment a) {
+        return new AppointmentChangedEvent(
+                kind,
+                a.getAppointmentId(),
+                a.getPatient().getPatientId(),
+                a.getDoctor().getDoctorId(),
+                a.getPatient().getFirstName(),
+                a.getDoctor().getLastName(),
+                a.getSlot().getSlotDate(),
+                a.getSlot().getStartTime());
     }
-
 }

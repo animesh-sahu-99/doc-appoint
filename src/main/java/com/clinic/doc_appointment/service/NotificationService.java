@@ -4,7 +4,10 @@ import com.clinic.doc_appointment.dto.response.NotificationResponse;
 import com.clinic.doc_appointment.entity.Notification;
 import com.clinic.doc_appointment.entity.UserDevice;
 import com.clinic.doc_appointment.enums.NotificationType;
+import com.clinic.doc_appointment.mapper.NotificationMapper;
 import com.clinic.doc_appointment.repository.NotificationRepository;
+import com.clinic.doc_appointment.service.push.PushMessage;
+import com.clinic.doc_appointment.service.push.PushNotificationProvider;
 import com.clinic.doc_appointment.repository.UserDeviceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,11 +28,12 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserDeviceRepository userDeviceRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final FcmPushService fcmPushService;
+    private final PushNotificationProvider pushNotificationProvider;
+    private final NotificationMapper notificationMapper;
 
     public Page<NotificationResponse> getUserNotifications(String userId, int page, int size) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
-                .map(this::mapToResponse);
+                .map(notificationMapper::toResponse);
     }
 
     @Transactional
@@ -73,11 +77,11 @@ public class NotificationService {
     public void markAsRead(String notificationId, String userId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
-        
+
         if (!notification.getUserId().equals(userId)) {
             throw new RuntimeException("Unauthorized to access this notification");
         }
-        
+
         notification.setRead(true);
         notificationRepository.save(notification);
     }
@@ -101,7 +105,7 @@ public class NotificationService {
         log.info("Saved Notification for user {}: {}", userId, title);
 
         // Broadcast to WebSocket queue: /user/{userId}/queue/notifications
-        NotificationResponse response = mapToResponse(notification);
+        NotificationResponse response = notificationMapper.toResponse(notification);
         messagingTemplate.convertAndSendToUser(userId, "/queue/notifications", response);
         log.info("Broadcasted Notification to STOMP over WebSocket for user {}", userId);
 
@@ -110,21 +114,9 @@ public class NotificationService {
                 .stream()
                 .map(UserDevice::getFcmToken)
                 .collect(Collectors.toList());
-        
-        if (!tokens.isEmpty()) {
-            fcmPushService.sendPushNotificationToTokens(tokens, title, message, type.name(), relatedEntityId);
-        }
-    }
 
-    private NotificationResponse mapToResponse(Notification notification) {
-        return NotificationResponse.builder()
-                .id(notification.getId())
-                .title(notification.getTitle())
-                .message(notification.getMessage())
-                .type(notification.getType())
-                .relatedEntityId(notification.getRelatedEntityId())
-                .isRead(notification.isRead())
-                .createdAt(notification.getCreatedAt())
-                .build();
+        if (!tokens.isEmpty()) {
+            pushNotificationProvider.send(tokens, new PushMessage(title, message, type.name(), relatedEntityId));
+        }
     }
 }

@@ -9,9 +9,12 @@ import com.clinic.doc_appointment.exception.BookedSlotException;
 import com.clinic.doc_appointment.exception.InvalidSlotDateException;
 import com.clinic.doc_appointment.exception.InvalidSlotTimeException;
 import com.clinic.doc_appointment.exception.ResourceNotFoundException;
-import com.clinic.doc_appointment.exception.SlotOverlapException;
+import com.clinic.doc_appointment.mapper.SlotMapper;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.DoctorRepository;
+import com.clinic.doc_appointment.util.EntityFinder;
+import com.clinic.doc_appointment.validation.CompositeValidator;
+import com.clinic.doc_appointment.validation.slot.SlotCreationValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,37 +32,19 @@ public class SlotService {
 
     private final DoctorAvailabilityRepository slotRepository;
     private final DoctorRepository doctorRepository;
+    private final SlotMapper slotMapper;
+    private final List<SlotCreationValidator> slotCreationValidators;
 
     @Transactional
     public SlotResponse createSlot(CreateSlotRequest request) {
         log.info("Creating slot for doctor: {} on {}", request.getDoctorId(), request.getSlotDate());
 
         // Validate doctor exists
-        Doctor doctor = doctorRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Doctor not found with ID: " + request.getDoctorId()));
+        Doctor doctor = EntityFinder.findOrThrow(doctorRepository, request.getDoctorId(),
+                "Doctor not found with ID: " + request.getDoctorId());
 
-        // Validate slot date is not in the past
-        if (request.getSlotDate().isBefore(LocalDate.now())) {
-            throw new InvalidSlotDateException("Cannot create slots for past dates");
-        }
-
-        // Validate time range
-        if (request.getEndTime().isBefore(request.getStartTime()) ||
-                request.getEndTime().equals(request.getStartTime())) {
-            throw new InvalidSlotTimeException("End time must be after start time");
-        }
-
-        // Check for overlapping slots
-        List<DoctorAvailability> overlapping = slotRepository.findOverlappingSlots(
-                request.getDoctorId(),
-                request.getSlotDate(),
-                request.getStartTime(),
-                request.getEndTime());
-
-        if (!overlapping.isEmpty()) {
-            throw new SlotOverlapException("Slot overlaps with existing slots");
-        }
+        // Validate via composed slot-creation rules (date-not-past -> time-order -> overlap).
+        new CompositeValidator<CreateSlotRequest>(slotCreationValidators).validate(request);
 
         // Create slot
         DoctorAvailability slot = new DoctorAvailability()
@@ -74,7 +58,7 @@ public class SlotService {
         DoctorAvailability savedSlot = slotRepository.save(slot);
         log.info("Slot created successfully: {}", savedSlot.getSlotId());
 
-        return mapToResponse(savedSlot);
+        return slotMapper.toResponse(savedSlot);
     }
 
     @Transactional
@@ -83,9 +67,8 @@ public class SlotService {
                 request.getDoctorId(), request.getSlotDate());
 
         // Validate doctor exists
-        Doctor doctor = doctorRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Doctor not found with ID: " + request.getDoctorId()));
+        Doctor doctor = EntityFinder.findOrThrow(doctorRepository, request.getDoctorId(),
+                "Doctor not found with ID: " + request.getDoctorId());
 
         // Validate slot date is not in the past
         if (request.getSlotDate().isBefore(LocalDate.now())) {
@@ -133,14 +116,13 @@ public class SlotService {
         List<DoctorAvailability> savedSlots = slotRepository.saveAll(slots);
         log.info("Created {} slots for doctor: {}", savedSlots.size(), request.getDoctorId());
 
-        return mapToResponseList(savedSlots);
+        return slotMapper.toResponseList(savedSlots);
     }
 
     public SlotResponse getSlotById(String slotId) {
-        DoctorAvailability slot = slotRepository.findById(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Slot not found with ID: " + slotId));
-        return mapToResponse(slot);
+        DoctorAvailability slot = EntityFinder.findOrThrow(slotRepository, slotId,
+                "Slot not found with ID: " + slotId);
+        return slotMapper.toResponse(slot);
     }
 
     public List<SlotResponse> getAvailableSlotsByDoctor(String doctorId) {
@@ -149,7 +131,7 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return mapToResponseList(slotRepository.findAvailableSlotsByDoctor(doctorId));
+        return slotMapper.toResponseList(slotRepository.findAvailableSlotsByDoctor(doctorId));
     }
 
     public List<SlotResponse> getAvailableSlotsByDoctorAndDate(String doctorId, LocalDate date) {
@@ -158,7 +140,7 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return mapToResponseList(
+        return slotMapper.toResponseList(
                 slotRepository.findByDoctorDoctorIdAndSlotDateAndIsAvailableTrue(doctorId, date));
     }
 
@@ -170,7 +152,7 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return mapToResponseList(
+        return slotMapper.toResponseList(
                 slotRepository.findAvailableSlotsByDoctorAndDateRange(doctorId, startDate, endDate));
     }
 
@@ -180,16 +162,15 @@ public class SlotService {
             throw new ResourceNotFoundException("Doctor not found with ID: " + doctorId);
         }
 
-        return mapToResponseList(slotRepository.findByDoctorDoctorIdAndSlotDate(doctorId, date));
+        return slotMapper.toResponseList(slotRepository.findByDoctorDoctorIdAndSlotDate(doctorId, date));
     }
 
     @Transactional
     public void deleteSlot(String slotId) {
         log.info("Deleting slot: {}", slotId);
 
-        DoctorAvailability slot = slotRepository.findById(slotId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Slot not found with ID: " + slotId));
+        DoctorAvailability slot = EntityFinder.findOrThrow(slotRepository, slotId,
+                "Slot not found with ID: " + slotId);
 
         if (!slot.getIsAvailable()) {
             throw new BookedSlotException("Cannot delete a booked slot");
@@ -213,30 +194,5 @@ public class SlotService {
 
         slotRepository.deleteByDoctorDoctorIdAndSlotDate(doctorId, date);
         log.info("Deleted all slots for doctor: {} on date: {}", doctorId, date);
-    }
-
-    // =============== HELPER METHODS ===============
-
-    private SlotResponse mapToResponse(DoctorAvailability slot) {
-        Doctor doctor = slot.getDoctor();
-        String doctorName = doctor.getFirstName() +
-                (doctor.getLastName() != null ? " " + doctor.getLastName() : "");
-
-        return new SlotResponse()
-                .setSlotId(slot.getSlotId())
-                .setDoctorId(doctor.getDoctorId())
-                .setDoctorName(doctorName)
-                .setSlotDate(slot.getSlotDate())
-                .setStartTime(slot.getStartTime())
-                .setEndTime(slot.getEndTime())
-                .setDurationMinutes(slot.getDurationMinutes())
-                .setIsAvailable(slot.getIsAvailable())
-                .setCreatedAt(slot.getCreatedAt());
-    }
-
-    private List<SlotResponse> mapToResponseList(List<DoctorAvailability> slots) {
-        return slots.stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
     }
 }

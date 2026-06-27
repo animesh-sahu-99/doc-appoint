@@ -2,6 +2,7 @@ package com.clinic.doc_appointment.controller;
 
 import com.clinic.doc_appointment.dto.response.ApiResponse;
 import com.clinic.doc_appointment.dto.response.DocumentResponse;
+import com.clinic.doc_appointment.enums.Role;
 import com.clinic.doc_appointment.security.UserPrincipal;
 import com.clinic.doc_appointment.service.document.DocumentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,7 +38,7 @@ public class DocumentController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
             
         // We figure out the role based on what type of user is logged in
-        String role = userPrincipal.getRole().replace("ROLE_", "");
+        Role role = Role.fromAuthority(userPrincipal.getRole());
         String userId = userPrincipal.getId();
         
         DocumentResponse response = documentService.uploadDocument(appointmentId, userId, role, file, documentType);
@@ -56,7 +57,7 @@ public class DocumentController {
             @PathVariable String appointmentId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
             
-        String role = userPrincipal.getRole().replace("ROLE_", "");
+        Role role = Role.fromAuthority(userPrincipal.getRole());
         String userId = userPrincipal.getId();
         
         List<DocumentResponse> response = documentService.getDocumentsForAppointment(appointmentId, userId, role);
@@ -75,7 +76,7 @@ public class DocumentController {
             @PathVariable String documentId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
             
-        String role = userPrincipal.getRole().replace("ROLE_", "");
+        Role role = Role.fromAuthority(userPrincipal.getRole());
         String userId = userPrincipal.getId();
 
         // Single DB call: validates auth + returns metadata + streams resource together
@@ -99,7 +100,7 @@ public class DocumentController {
             @PathVariable String documentId,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
             
-        String role = userPrincipal.getRole().replace("ROLE_", "");
+        Role role = Role.fromAuthority(userPrincipal.getRole());
         String userId = userPrincipal.getId();
         
         documentService.deleteDocument(documentId, userId, role);

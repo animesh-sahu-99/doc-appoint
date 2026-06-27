@@ -11,7 +11,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "appointment_documents")
@@ -28,7 +29,7 @@ public class AppointmentDocument {
     @PrePersist
     public void generateId() {
         if (documentId == null) {
-            documentId = "DOC-" + UUID.randomUUID();
+            documentId = IdGenerator.withPrefix(IdPrefix.DOCUMENT);
         }
     }
 

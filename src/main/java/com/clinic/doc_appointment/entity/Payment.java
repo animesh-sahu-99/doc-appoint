@@ -12,7 +12,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "payments")
@@ -29,7 +30,7 @@ public class Payment {
     @PrePersist
     public void generateId(){
         if(paymentId == null){
-            paymentId = "PAYMENT-"+ UUID.randomUUID();
+            paymentId = IdGenerator.withPrefix(IdPrefix.PAYMENT);
         }
     }
 

@@ -1,7 +1,10 @@
 package com.clinic.doc_appointment.dto.response;
 
 import com.clinic.doc_appointment.enums.AppointmentStatus;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
 import java.math.BigDecimal;
@@ -10,6 +13,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Accessors(chain = true)
 public class AppointmentResponse {
     private String appointmentId;

@@ -17,7 +17,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "doctors", uniqueConstraints = {
@@ -35,7 +36,7 @@ public class Doctor {
     @PrePersist
     public void generateId(){
         if(doctorId == null){
-            doctorId = "DOC-"+ UUID.randomUUID();
+            doctorId = IdGenerator.withPrefix(IdPrefix.DOCTOR);
         }
     }
 

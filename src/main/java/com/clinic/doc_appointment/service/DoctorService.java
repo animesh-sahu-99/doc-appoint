@@ -6,10 +6,11 @@ import com.clinic.doc_appointment.dto.request.DoctorUpdateRequest;
 import com.clinic.doc_appointment.dto.response.DoctorResponse;
 import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.enums.Specialization;
-import com.clinic.doc_appointment.exception.DuplicateResourceException;
-import com.clinic.doc_appointment.exception.ResourceNotFoundException;
+import com.clinic.doc_appointment.mapper.DoctorMapper;
+import com.clinic.doc_appointment.service.registration.RegistrationValidator;
 import com.clinic.doc_appointment.repository.DoctorRepository;
 import com.clinic.doc_appointment.specification.DoctorSpecification;
+import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,16 +27,13 @@ public class DoctorService {
 
     private final DoctorRepository doctorRepository;
     private final PasswordEncoder passwordEncoder;  // ✅ Injected for BCrypt
+    private final DoctorMapper doctorMapper;
+    private final RegistrationValidator registrationValidator;
 
     @Transactional
     public DoctorResponse registerDoctor(DoctorRegistrationRequest request) {
-        if (doctorRepository.existsByEmail(request.getEmail())) {
-            throw new DuplicateResourceException("Email already registered");
-        }
-
-        if (doctorRepository.existsByCountryCodeAndPhoneNumber(request.getCountryCode(), request.getPhoneNumber())) {
-            throw new DuplicateResourceException("Phone already registered");
-        }
+        registrationValidator.validateDoctorRegistration(
+                request.getEmail(), request.getCountryCode(), request.getPhoneNumber());
 
         Doctor doctor = new Doctor()
                 .setFirstName(request.getName())
@@ -51,20 +49,18 @@ public class DoctorService {
                 .setIsActive(true);
 
         Doctor savedDoctor = doctorRepository.save(doctor);
-        return mapToResponse(savedDoctor);
+        return doctorMapper.toResponse(savedDoctor);
     }
 
     public DoctorResponse getDoctorById(String doctorId) {
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
-        return mapToResponse(doctor);
+        Doctor doctor = EntityFinder.findOrThrow(doctorRepository, doctorId, "Doctor not found with id: " + doctorId);
+        return doctorMapper.toResponse(doctor);
     }
 
     @Transactional
     public DoctorResponse updateDoctor(String doctorId, DoctorUpdateRequest request) {
         // Validate doctor exists first
-        Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+        EntityFinder.findOrThrow(doctorRepository, doctorId, "Doctor not found with id: " + doctorId);
 
         // Use direct JPQL update to avoid CascadeType.ALL cascade issues on appointments/slots
         String name = (request.getName() != null && !request.getName().isBlank()) ? request.getName() : null;
@@ -80,16 +76,12 @@ public class DoctorService {
         );
 
         // Re-fetch updated doctor and return as response
-        Doctor updated = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found after update"));
-        return mapToResponse(updated);
+        Doctor updated = EntityFinder.findOrThrow(doctorRepository, doctorId, "Doctor not found after update");
+        return doctorMapper.toResponse(updated);
     }
 
     public List<DoctorResponse> getAllDoctors() {
-        return doctorRepository.findByIsActiveTrue()
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return doctorMapper.toResponseList(doctorRepository.findByIsActiveTrue());
     }
 
     /**
@@ -98,18 +90,12 @@ public class DoctorService {
      */
     public List<DoctorResponse> searchDoctors(DoctorFilterRequest filters) {
         Specification<Doctor> spec = DoctorSpecification.withFilters(filters);
-        return doctorRepository.findAll(spec)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return doctorMapper.toResponseList(doctorRepository.findAll(spec));
     }
 
     // ✅ Get by specialization enum
     public List<DoctorResponse> getDoctorsBySpecialization(Specialization specialization) {
-        return doctorRepository.findBySpecializationAndIsActiveTrue(specialization)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        return doctorMapper.toResponseList(doctorRepository.findBySpecializationAndIsActiveTrue(specialization));
     }
 
     // ✅ Get all specializations
@@ -125,30 +111,7 @@ public class DoctorService {
 
     // ✅ Get available doctors by specialization
     public List<DoctorResponse> getAvailableDoctorsBySpecialization(Specialization specialization) {
-        return doctorRepository.findAvailableDoctorsBySpecialization(specialization)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
-    }
-
-    private DoctorResponse mapToResponse(Doctor doctor) {
-        String fullName = doctor.getFirstName() + (doctor.getLastName() != null ? " " + doctor.getLastName() : "");
-        return new DoctorResponse()
-                .setDoctorId(doctor.getDoctorId())
-                .setName(fullName)
-                .setEmail(doctor.getEmail())
-                .setPhone(doctor.getPhoneNumber())
-                .setSpecialization(doctor.getSpecialization())
-                .setSpecializationDisplayName(doctor.getSpecialization().getDisplayName())
-                .setSpecializationDescription(doctor.getSpecialization().getDescription())
-                .setQualification(doctor.getQualification())
-                .setExperienceYears(doctor.getExperienceYears())
-                .setConsultationFee(doctor.getConsultationFee())
-                .setProfileImage(doctor.getProfileImage())
-                .setAbout(doctor.getAbout())
-                .setAverageRating(doctor.getAverageRating())
-                .setTotalReviews(doctor.getTotalReviews())
-                .setIsActive(doctor.getIsActive());
+        return doctorMapper.toResponseList(doctorRepository.findAvailableDoctorsBySpecialization(specialization));
     }
 
     // Inner class for specialization info

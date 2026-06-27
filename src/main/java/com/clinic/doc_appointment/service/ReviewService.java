@@ -8,10 +8,11 @@ import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.entity.Review;
 import com.clinic.doc_appointment.enums.AppointmentStatus;
 import com.clinic.doc_appointment.exception.InvalidStateException;
-import com.clinic.doc_appointment.exception.ResourceNotFoundException;
+import com.clinic.doc_appointment.mapper.ReviewMapper;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.DoctorRepository;
 import com.clinic.doc_appointment.repository.ReviewRepository;
+import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,13 +34,14 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final AppointmentRepository appointmentRepository;
     private final DoctorRepository doctorRepository;
+    private final ReviewMapper reviewMapper;
 
     @Transactional
     public ReviewResponse submitReview(String patientId, ReviewRequest request) {
         log.info("Submitting review for appointment: {}", request.getAppointmentId());
 
-        Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+        Appointment appointment = EntityFinder.findOrThrow(appointmentRepository,
+                request.getAppointmentId(), "Appointment not found");
 
         // 1. Validate ownership and status
         if (!appointment.getPatient().getPatientId().equals(patientId)) {
@@ -68,13 +70,12 @@ public class ReviewService {
         // 4. Update Doctor Stats (Denormalization)
         updateDoctorStats(appointment.getDoctor(), request.getRating());
 
-        return mapToResponse(review);
+        return reviewMapper.toResponse(review);
     }
 
     @Transactional
     public ReviewResponse replyToReview(String doctorId, String reviewId, DoctorReplyRequest request) {
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException("Review not found"));
+        Review review = EntityFinder.findOrThrow(reviewRepository, reviewId, "Review not found");
 
         if (!review.getDoctor().getDoctorId().equals(doctorId)) {
             throw new InvalidStateException("You can only reply to reviews addressed to you");
@@ -83,12 +84,12 @@ public class ReviewService {
         review.setDoctorReply(request.getReply())
                 .setRepliedAt(LocalDateTime.now());
 
-        return mapToResponse(reviewRepository.save(review));
+        return reviewMapper.toResponse(reviewRepository.save(review));
     }
 
     public Page<ReviewResponse> getDoctorReviews(String doctorId, String sortType, int page, int size) {
         Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
-        
+
         if ("high".equalsIgnoreCase(sortType)) {
             sort = Sort.by(Sort.Direction.DESC, "rating").and(Sort.by(Sort.Direction.DESC, "createdAt"));
         } else if ("low".equalsIgnoreCase(sortType)) {
@@ -97,7 +98,7 @@ public class ReviewService {
 
         Pageable pageable = PageRequest.of(page, size, sort);
         return reviewRepository.findByDoctorDoctorId(doctorId, pageable)
-                .map(this::mapToResponse);
+                .map(reviewMapper::toResponse);
     }
 
     private void updateDoctorStats(Doctor doctor, Integer newRating) {
@@ -119,21 +120,5 @@ public class ReviewService {
         doctorRepository.save(doctor);
         log.info("Updated stats for doctor {}: new avg {}, total {}",
                 doctor.getDoctorId(), doctor.getAverageRating(), doctor.getTotalReviews());
-    }
-
-    private ReviewResponse mapToResponse(Review review) {
-        String patientName = review.getPatient().getFirstName() + 
-                (review.getPatient().getLastName() != null ? " " + review.getPatient().getLastName() : "");
-
-        return ReviewResponse.builder()
-                .reviewId(review.getReviewId())
-                .appointmentId(review.getAppointment().getAppointmentId())
-                .patientName(patientName)
-                .rating(review.getRating())
-                .comment(review.getComment())
-                .doctorReply(review.getDoctorReply())
-                .repliedAt(review.getRepliedAt())
-                .createdAt(review.getCreatedAt())
-                .build();
     }
 }

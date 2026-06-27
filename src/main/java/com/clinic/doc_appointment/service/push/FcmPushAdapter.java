@@ -1,14 +1,14 @@
-package com.clinic.doc_appointment.service;
+package com.clinic.doc_appointment.service.push;
 
 import com.clinic.doc_appointment.repository.UserDeviceRepository;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
-import com.google.firebase.messaging.AndroidConfig;
-import com.google.firebase.messaging.AndroidNotification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,15 +16,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * Adapter that delivers {@link PushMessage}s via Firebase Cloud Messaging. All Firebase SDK
+ * coupling lives here, behind the {@link PushNotificationProvider} port. Behavior is unchanged
+ * from the previous {@code FcmPushService}: no-ops when Firebase is uninitialized, deactivates
+ * {@code UNREGISTERED} tokens, and sends high-priority Android notifications.
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FcmPushService {
+public class FcmPushAdapter implements PushNotificationProvider {
 
     private final UserDeviceRepository userDeviceRepository;
 
+    @Override
     @Transactional
-    public void sendPushNotificationToTokens(List<String> tokens, String title, String body, String type, String relatedEntityId) {
+    public void send(List<String> tokens, PushMessage message) {
         if (tokens == null || tokens.isEmpty()) return;
 
         if (FirebaseApp.getApps().isEmpty()) {
@@ -32,13 +39,16 @@ public class FcmPushService {
             return;
         }
 
+        String type = message.type();
+        String relatedEntityId = message.relatedEntityId();
+
         for (String token : tokens) {
             try {
-                Message message = Message.builder()
+                Message fcmMessage = Message.builder()
                         .setToken(token)
                         .setNotification(Notification.builder()
-                                .setTitle(title)
-                                .setBody(body)
+                                .setTitle(message.title())
+                                .setBody(message.body())
                                 .build())
                         .setAndroidConfig(AndroidConfig.builder()
                                 .setPriority(AndroidConfig.Priority.HIGH)
@@ -51,7 +61,7 @@ public class FcmPushService {
                         .putData("relatedEntityId", relatedEntityId != null ? relatedEntityId : "")
                         .build();
 
-                String response = FirebaseMessaging.getInstance().send(message);
+                String response = FirebaseMessaging.getInstance().send(fcmMessage);
                 log.info("Successfully sent FCM push notification: {}", response);
 
             } catch (FirebaseMessagingException e) {

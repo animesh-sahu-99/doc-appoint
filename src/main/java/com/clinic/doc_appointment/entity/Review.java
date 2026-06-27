@@ -12,7 +12,8 @@ import org.hibernate.annotations.Check;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "reviews")
@@ -29,7 +30,7 @@ public class Review {
     @PrePersist
     public void generateId() {
         if (reviewId == null) {
-            reviewId = "REVIEW-" + UUID.randomUUID();
+            reviewId = IdGenerator.withPrefix(IdPrefix.REVIEW);
         }
     }
 

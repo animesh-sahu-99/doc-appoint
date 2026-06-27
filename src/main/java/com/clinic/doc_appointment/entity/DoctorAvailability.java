@@ -13,7 +13,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.UUID;
+import com.clinic.doc_appointment.enums.IdPrefix;
+import com.clinic.doc_appointment.util.IdGenerator;
 
 @Entity
 @Table(name = "doctor_availability")
@@ -29,7 +30,7 @@ public class DoctorAvailability {
     @PrePersist
     public void generateId(){
         if(slotId == null){
-            slotId = "SLOT-"+ UUID.randomUUID();
+            slotId = IdGenerator.withPrefix(IdPrefix.SLOT);
         }
     }
 
