@@ -14,6 +14,10 @@ import com.clinic.doc_appointment.mapper.AppointmentMapper;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.DoctorAvailabilityRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;
+import com.clinic.doc_appointment.security.AppointmentAccessGuard;
+import com.clinic.doc_appointment.security.UserPrincipal;
+import com.clinic.doc_appointment.exception.ForbiddenOperationException;
+import com.clinic.doc_appointment.enums.Role;
 import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +49,7 @@ public class AppointmentService {
     private final AppointmentMapper appointmentMapper;
     private final AppointmentTransitionValidator transitionValidator;
     private final ApplicationEventPublisher eventPublisher;
+    private final AppointmentAccessGuard accessGuard;
 
     /**
      * Book appointment with Optimistic Locking + Retry
@@ -55,9 +60,15 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2, maxDelay = 1000)
     )
-    public AppointmentResponse bookAppointment(BookAppointmentRequest request) {
+    public AppointmentResponse bookAppointment(BookAppointmentRequest request, UserPrincipal caller) {
         log.info("Booking appointment - Patient: {}, Slot: {}",
                 request.getPatientId(), request.getSlotId());
+
+        // 0. A patient may only book for themselves
+        boolean isPatient = Role.PATIENT.authority().equals(caller.getRole());
+        if (!isPatient || !caller.getId().equals(request.getPatientId())) {
+            throw new ForbiddenOperationException("You may only book appointments for your own account.");
+        }
 
         // 1. Validate Patient
         Patient patient = EntityFinder.findOrThrow(patientRepository, request.getPatientId(),
@@ -104,7 +115,8 @@ public class AppointmentService {
      */
     @Recover
     public AppointmentResponse recoverBooking(OptimisticLockingFailureException ex,
-                                              BookAppointmentRequest request) {
+                                              BookAppointmentRequest request,
+                                              UserPrincipal caller) {
         log.error("All retry attempts failed for booking - Patient: {}, Slot: {}",
                 request.getPatientId(), request.getSlotId());
         throw new BookingConflictException(
@@ -113,7 +125,8 @@ public class AppointmentService {
 
     @Recover
     public AppointmentResponse recoverBooking(ObjectOptimisticLockingFailureException ex,
-                                              BookAppointmentRequest request) {
+                                              BookAppointmentRequest request,
+                                              UserPrincipal caller) {
         log.error("All retry attempts failed for booking - Patient: {}, Slot: {}",
                 request.getPatientId(), request.getSlotId());
         throw new BookingConflictException(
@@ -132,23 +145,28 @@ public class AppointmentService {
         return appointmentMapper.toResponse(appointment);
     }
 
-    public List<AppointmentResponse> getPatientAppointments(String patientId) {
+    public List<AppointmentResponse> getPatientAppointments(String patientId, UserPrincipal caller) {
+        accessGuard.assertCanViewPatientHistory(caller, patientId);
         return appointmentMapper.toResponseList(appointmentRepository.findByPatientOrderByDateDesc(patientId));
     }
 
-    public List<AppointmentResponse> getUpcomingPatientAppointments(String patientId) {
+    public List<AppointmentResponse> getUpcomingPatientAppointments(String patientId, UserPrincipal caller) {
+        accessGuard.assertCanViewPatientHistory(caller, patientId);
         return appointmentMapper.toResponseList(appointmentRepository.findUpcomingByPatient(patientId));
     }
 
-    public List<AppointmentResponse> getDoctorAppointments(String doctorId) {
+    public List<AppointmentResponse> getDoctorAppointments(String doctorId, UserPrincipal caller) {
+        accessGuard.assertCanViewDoctorSchedule(caller, doctorId);
         return appointmentMapper.toResponseList(appointmentRepository.findByDoctorDoctorId(doctorId));
     }
 
-    public List<AppointmentResponse> getUpcomingDoctorAppointments(String doctorId) {
+    public List<AppointmentResponse> getUpcomingDoctorAppointments(String doctorId, UserPrincipal caller) {
+        accessGuard.assertCanViewDoctorSchedule(caller, doctorId);
         return appointmentMapper.toResponseList(appointmentRepository.findUpcomingByDoctor(doctorId));
     }
 
-    public List<AppointmentResponse> getDoctorAppointmentsByDate(String doctorId, LocalDate date) {
+    public List<AppointmentResponse> getDoctorAppointmentsByDate(String doctorId, LocalDate date, UserPrincipal caller) {
+        accessGuard.assertCanViewDoctorSchedule(caller, doctorId);
         return appointmentMapper.toResponseList(appointmentRepository.findByDoctorAndDate(doctorId, date));
     }
 
@@ -158,10 +176,11 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
-    public AppointmentResponse confirmAppointment(String appointmentId) {
+    public AppointmentResponse confirmAppointment(String appointmentId, UserPrincipal caller) {
         log.info("Confirming appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
+        accessGuard.assertOwnsAppointmentAsDoctor(caller, appointment);
         transitionValidator.assertCanConfirm(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.CONFIRMED);
@@ -179,10 +198,11 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
-    public AppointmentResponse cancelAppointment(String appointmentId) {
+    public AppointmentResponse cancelAppointment(String appointmentId, UserPrincipal caller) {
         log.info("Cancelling appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
+        accessGuard.assertCanCancel(caller, appointment);
         transitionValidator.assertCanCancel(appointment.getStatus());
 
         // Update status - slot will be freed automatically by @PostUpdate listener
@@ -201,10 +221,11 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
-    public AppointmentResponse completeAppointment(String appointmentId) {
+    public AppointmentResponse completeAppointment(String appointmentId, UserPrincipal caller) {
         log.info("Completing appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
+        accessGuard.assertOwnsAppointmentAsDoctor(caller, appointment);
         transitionValidator.assertCanComplete(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.COMPLETED);
@@ -222,10 +243,11 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
-    public AppointmentResponse updateAppointmentNotes(String appointmentId, String notes) {
+    public AppointmentResponse updateAppointmentNotes(String appointmentId, String notes, UserPrincipal caller) {
         log.info("Updating notes for appointment: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
+        accessGuard.assertOwnsAppointmentAsDoctor(caller, appointment);
         transitionValidator.assertCanEditNotes(appointment.getStatus());
 
         appointment.setNotes(notes);
@@ -243,10 +265,11 @@ public class AppointmentService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2)
     )
-    public AppointmentResponse markNoShow(String appointmentId) {
+    public AppointmentResponse markNoShow(String appointmentId, UserPrincipal caller) {
         log.info("Marking appointment as no-show: {}", appointmentId);
 
         Appointment appointment = findAppointmentById(appointmentId);
+        accessGuard.assertOwnsAppointmentAsDoctor(caller, appointment);
         transitionValidator.assertCanMarkNoShow(appointment.getStatus());
 
         appointment.setStatus(AppointmentStatus.NO_SHOW);

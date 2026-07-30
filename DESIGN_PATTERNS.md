@@ -30,7 +30,7 @@ Line references were verified against the tree at the time of writing; re-confir
 
 | Principle | Strength today | Gap → recommended action |
 |---|---|---|
-| **Coupling & Cohesion** | Constructor DI everywhere (`@RequiredArgsConstructor`); `FileStorageService` is an abstraction; `DoctorSpecification` isolates query logic | `AppointmentService` is coupled to notification delivery (7 inline calls); `NotificationService`→`FcmPushService`→Firebase SDK is a hard dependency chain → **Observer** + **Adapter** |
+| **Coupling & Cohesion** | Constructor DI everywhere (`@RequiredArgsConstructor`); `FileStorageService` is an abstraction; `DoctorSpecification` isolates query logic | `AppointmentService` is coupled to notification delivery (8 inline calls); `NotificationService`→`FcmPushService`→Firebase SDK is a hard dependency chain → **Observer** + **Adapter** |
 | **DRY** | `findAppointmentById`/`findPatientById` helpers; `mapToResponseList` in `SlotService`; `ApiResponse` factory methods | `buildFullName`, `findById().orElseThrow(...)` (~repeated across services), and `.stream().map(this::mapToResponse).collect(toList())` are duplicated → **shared utils + a mapper layer** |
 | **KISS** | Optimistic-lock + `@Retryable` solve concurrency without a custom scheduler | Keep it simple: **skip** Abstract Factory / Command / custom Iterator / one-class-per-state |
 | **Clean code** | `@Slf4j` logging; clear method names; rich custom-exception hierarchy | Role handled as magic strings; two `RuntimeException`s in `NotificationService` (lines 75, 78) bypass the exception hierarchy → **`Role` enum** + (later) typed exceptions |

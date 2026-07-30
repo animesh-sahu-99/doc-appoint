@@ -21,6 +21,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, String
 
     List<Appointment> findByDoctorDoctorId(String doctorId);
 
+    /** True if the given doctor has at least one appointment with the given patient. */
+    boolean existsByDoctorDoctorIdAndPatientPatientId(String doctorId, String patientId);
+
     List<Appointment> findByPatientPatientIdAndStatus(String patientId, AppointmentStatus status);
 
     List<Appointment> findByDoctorDoctorIdAndStatus(String doctorId, AppointmentStatus status);
