@@ -137,6 +137,14 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    // ✅ Handle Rate Limiting (too many failed logins) → 429
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooManyRequests(TooManyRequestsException ex) {
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     // ✅ Handle Bad Input (invalid arguments) — genuine client errors stay 400
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {

@@ -11,6 +11,7 @@ import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.repository.DoctorRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;
 import com.clinic.doc_appointment.security.JwtService;
+import com.clinic.doc_appointment.security.LoginRateLimiter;
 import com.clinic.doc_appointment.security.UserPrincipal;
 import com.clinic.doc_appointment.service.registration.DoctorRegistrationService;
 import com.clinic.doc_appointment.service.registration.PatientRegistrationService;
@@ -20,6 +21,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -38,6 +40,24 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final DoctorRegistrationService doctorRegistrationService;
     private final PatientRegistrationService patientRegistrationService;
+    private final LoginRateLimiter loginRateLimiter;
+
+    /**
+     * Authenticate through the brute-force guard: reject blocked IPs up front, count a
+     * failed attempt on bad credentials, and reset the IP's counter on success.
+     */
+    private Authentication authenticate(String email, String password, String clientIp) {
+        loginRateLimiter.assertNotBlocked(clientIp);
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, password));
+            loginRateLimiter.recordSuccess(clientIp);
+            return authentication;
+        } catch (AuthenticationException ex) {
+            loginRateLimiter.recordFailure(clientIp);
+            throw ex;
+        }
+    }
 
     // ===================== DOCTOR AUTH =====================
 
@@ -46,11 +66,10 @@ public class AuthService {
         return doctorRegistrationService.register(request);
     }
 
-    public AuthResponse loginDoctor(LoginRequest request) {
+    public AuthResponse loginDoctor(LoginRequest request, String clientIp) {
         log.info("Doctor login attempt: {}", request.getEmail());
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        Authentication authentication = authenticate(request.getEmail(), request.getPassword(), clientIp);
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
@@ -79,11 +98,10 @@ public class AuthService {
         return patientRegistrationService.register(request);
     }
 
-    public AuthResponse loginPatient(LoginRequest request) {
+    public AuthResponse loginPatient(LoginRequest request, String clientIp) {
         log.info("Patient login attempt: {}", request.getEmail());
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        Authentication authentication = authenticate(request.getEmail(), request.getPassword(), clientIp);
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 

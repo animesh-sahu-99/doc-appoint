@@ -30,6 +30,13 @@ jwt:
   secret: doc-appointment-super-secret-key-change-in-production-2024
   expiration: 86400000  # 24 hours in milliseconds
 
+# Login brute-force rate limiting (per client IP, in-memory)
+ratelimit:
+  login:
+    max-attempts: 5          # failed attempts before an IP is blocked
+    block-minutes: 15        # how long a blocked IP must wait
+    trust-forwarded-for: false  # only enable behind a trusted reverse proxy
+
 # File Storage Configuration
 file:
   upload-dir: uploads
