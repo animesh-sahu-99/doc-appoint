@@ -23,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
@@ -56,7 +55,7 @@ public class AppointmentService {
      */
     @Transactional
     @Retryable(
-            retryFor = {OptimisticLockingFailureException.class, ObjectOptimisticLockingFailureException.class},
+            retryFor = {OptimisticLockingFailureException.class},
             maxAttempts = 3,
             backoff = @Backoff(delay = 100, multiplier = 2, maxDelay = 1000)
     )
@@ -111,20 +110,12 @@ public class AppointmentService {
     }
 
     /**
-     * Recovery method when all retries fail
+     * Recovery method when all retries fail. Typed to the superclass
+     * {@link OptimisticLockingFailureException}, so it also covers the
+     * {@code ObjectOptimisticLockingFailureException} subclass.
      */
     @Recover
     public AppointmentResponse recoverBooking(OptimisticLockingFailureException ex,
-                                              BookAppointmentRequest request,
-                                              UserPrincipal caller) {
-        log.error("All retry attempts failed for booking - Patient: {}, Slot: {}",
-                request.getPatientId(), request.getSlotId());
-        throw new BookingConflictException(
-                "Unable to book appointment. Slot was booked by another user. Please try a different slot.");
-    }
-
-    @Recover
-    public AppointmentResponse recoverBooking(ObjectOptimisticLockingFailureException ex,
                                               BookAppointmentRequest request,
                                               UserPrincipal caller) {
         log.error("All retry attempts failed for booking - Patient: {}, Slot: {}",
