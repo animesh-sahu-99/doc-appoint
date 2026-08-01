@@ -68,8 +68,8 @@ public class ReviewService {
 
         review = reviewRepository.save(review);
 
-        // 4. Update Doctor Stats (Denormalization)
-        updateDoctorStats(appointment.getDoctor(), request.getRating());
+        // 4. Update Doctor Stats (Denormalization) — recomputed from source rows
+        updateDoctorStats(appointment.getDoctor());
 
         return reviewMapper.toResponse(review);
     }
@@ -102,24 +102,24 @@ public class ReviewService {
                 .map(reviewMapper::toResponse);
     }
 
-    private void updateDoctorStats(Doctor doctor, Integer newRating) {
-        // Defensive null-handling for legacy data
-        int currentTotalReviews = (doctor.getTotalReviews() != null) ? doctor.getTotalReviews() : 0;
-        double currentAverageRating = (doctor.getAverageRating() != null) ? doctor.getAverageRating() : 0.0;
+    /**
+     * Recompute the doctor's denormalized rating stats directly from the Review rows.
+     * Deriving from source (not from the previously-rounded average) avoids compounding
+     * rounding drift and self-heals any prior drift on the next review.
+     */
+    private void updateDoctorStats(Doctor doctor) {
+        long totalReviews = reviewRepository.countByDoctorDoctorId(doctor.getDoctorId());
+        Double avg = reviewRepository.findAverageRatingByDoctorId(doctor.getDoctorId());
+        double average = (avg != null) ? avg : 0.0;
 
-        int newTotalReviews = currentTotalReviews + 1;
-        double currentTotalSum = currentAverageRating * currentTotalReviews;
-        double newAverage = (currentTotalSum + newRating) / newTotalReviews;
+        // Round to 1 decimal for storage/display only — never fed back into a calculation.
+        double rounded = BigDecimal.valueOf(average).setScale(1, RoundingMode.HALF_UP).doubleValue();
 
-        // Round to 1 decimal place
-        BigDecimal bd = new BigDecimal(Double.toString(newAverage));
-        bd = bd.setScale(1, RoundingMode.HALF_UP);
-
-        doctor.setTotalReviews(newTotalReviews);
-        doctor.setAverageRating(bd.doubleValue());
+        doctor.setTotalReviews((int) totalReviews);
+        doctor.setAverageRating(rounded);
 
         doctorRepository.save(doctor);
-        log.info("Updated stats for doctor {}: new avg {}, total {}",
-                doctor.getDoctorId(), doctor.getAverageRating(), doctor.getTotalReviews());
+        log.info("Recomputed stats for doctor {}: avg {}, total {}",
+                doctor.getDoctorId(), rounded, totalReviews);
     }
 }
