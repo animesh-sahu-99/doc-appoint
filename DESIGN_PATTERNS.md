@@ -204,9 +204,11 @@ Each note lists **new types / packages**, **files changed**, and a **one-line ri
   ([:31](src/main/java/com/clinic/doc_appointment/entity/AppointmentDocument.java)). Do **not** "fix" the clash — persisted IDs are immutable.
 - **File-at-rest format identical** (AES, `.enc`, prepended IV, same `CryptoUtils`/`${file.encryption.secret}`).
 - **FCM behavior identical** (init guard, per-token try/catch, `UNREGISTERED` → deactivate, channel/priority/sound, data keys).
-- **Concurrency machinery untouched:** `@Version` ([`Appointment.java:38`](src/main/java/com/clinic/doc_appointment/entity/Appointment.java)) + `@Retryable`/`@Recover` + `AppointmentEntityListener`
-  (`previousStatus` via `@PostLoad` → `@PostUpdate`/`@PreRemove`). Status mutation stays on the freshly-loaded
-  managed entity so the slot is freed exactly once.
+- **Concurrency machinery:** `@Version` ([`Appointment.java`](src/main/java/com/clinic/doc_appointment/entity/Appointment.java)) + `@Retryable`/`@Recover`. On cancel, the slot is freed
+  inline in `AppointmentService.cancelAppointment` within the same transaction (guarded so an
+  already-available slot is not re-saved), so the slot is freed exactly once. (Replaced the former
+  `AppointmentEntityListener`, which used a `static @Autowired` repository that could be null under
+  Hibernate's own listener instantiation.)
 - **Notifications identical:** recipients/types/messages per the table below.
 - **Exceptions:** all `ResourceNotFoundException` messages unchanged; the two `RuntimeException`s in
   `NotificationService` ([:75, :78](src/main/java/com/clinic/doc_appointment/service/NotificationService.java)) are left as-is in a behavior-preserving pass (changing them would change the

@@ -100,16 +100,17 @@ Standard layered Spring Boot app: `controller → service → repository → ent
 | `Doctor` | `DOC-` | name, email (unique), countryCode+phone (unique), password (BCrypt), `specialization`, qualification, experienceYears, `consultationFee`, about, **averageRating**, **totalReviews**, isActive | 1‑N `DoctorAvailability`, 1‑N `Appointment` | rating/review counts are **denormalized** (updated by `ReviewService`) |
 | `Patient` | `PAT-` | name, email (unique, **optional**), countryCode+phone (unique), password, gender, dateOfBirth, address | 1‑N `Appointment` | email optional → see gap in §8 |
 | `DoctorAvailability` (slot) | `SLOT-` | slotDate, startTime, endTime, durationMinutes, isAvailable, **`@Version` version** | N‑1 `Doctor`, 1‑1 `Appointment` | **optimistic locking** here prevents double‑booking |
-| `Appointment` | `APPOINTMENT-` | `appointmentNumber` (unique), `status`, reasonForVisit, `notes` (TEXT), transient `previousStatus` | N‑1 `Patient`, N‑1 `Doctor`, 1‑1 slot, 1‑1 `Payment` | `@EntityListeners(AppointmentEntityListener)` frees slot on cancel/delete; **no `@Version`** |
+| `Appointment` | `APPOINTMENT-` | `appointmentNumber` (unique), `status`, reasonForVisit, `notes` (TEXT), **`@Version` version** | N‑1 `Patient`, N‑1 `Doctor`, 1‑1 slot, 1‑1 `Payment` | slot freed inline in `AppointmentService.cancelAppointment`; **optimistic locking** via `@Version` |
 | `Payment` | `PAYMENT-` | amount, paymentMethod, transactionId, status (PENDING default) | 1‑1 `Appointment` | **entity only — never created** (see §8) |
 | `Review` | `REVIEW-` | appointmentId (unique), rating (1–5), comment, doctorReply, repliedAt | 1‑1 `Appointment`, N‑1 `Doctor`, N‑1 `Patient` | one review per appointment; rating not DB‑constrained |
 | `Notification` | UUID | userId (patient *or* doctor), title, message, `type`, relatedEntityId, isRead | — (polymorphic `userId` string) | indexed on `(user_id, is_read)` |
 | `UserDevice` | UUID | userId, fcmToken (unique), deviceType, isActive | — | supports multiple devices; old tokens deactivated |
 | `AppointmentDocument` | `DOC-` | appointmentId, uploaderId, uploaderRole, fileName, fileUrl (encrypted path), fileType, documentType, fileSize | N‑1 `Appointment` (LAZY) | files stored AES‑256 encrypted on disk |
 
-`AppointmentEntityListener`: on `@PostUpdate`, if status transitioned **to** `CANCELLED` it frees the slot
-(`isAvailable=true`); on `@PreRemove` it frees the slot too. Uses the transient `previousStatus` (set in
-`@PostLoad`) to avoid redundant frees.
+Slot freeing on cancel: `AppointmentService.cancelAppointment` sets the slot's `isAvailable=true`
+inline, in the same `@Transactional` (+`@Retryable`) unit as the status change to `CANCELLED` —
+mirroring how booking reserves the slot. (This replaced a fragile `AppointmentEntityListener` that
+relied on a `static @Autowired` repository.)
 
 ### 4.2 Enums
 

@@ -205,8 +205,15 @@ public class AppointmentService {
         accessGuard.assertCanCancel(caller, appointment);
         transitionValidator.assertCanCancel(appointment.getStatus());
 
-        // Update status - slot will be freed automatically by @PostUpdate listener
         appointment.setStatus(AppointmentStatus.CANCELLED);
+
+        // Free the slot in the same transaction (mirrors how booking reserves it).
+        DoctorAvailability slot = appointment.getSlot();
+        if (slot != null && Boolean.FALSE.equals(slot.getIsAvailable())) {
+            slot.setIsAvailable(true);
+            slotRepository.save(slot);
+        }
+
         Appointment saved = appointmentRepository.save(appointment);
 
         log.info("Appointment cancelled: {}", appointmentId);
