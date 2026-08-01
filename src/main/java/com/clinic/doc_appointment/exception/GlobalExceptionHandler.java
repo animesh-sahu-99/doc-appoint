@@ -137,16 +137,16 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
-    // ✅ Handle Runtime Exceptions
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ApiResponse<Void>> handleRuntimeException(RuntimeException ex) {
-        log.error("Runtime exception: {}", ex.getMessage());
+    // ✅ Handle Bad Input (invalid arguments) — genuine client errors stay 400
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Invalid argument: {}", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
-    // ✅ Handle All Other Exceptions
+    // ✅ Handle All Other Exceptions — untyped/unexpected errors are server faults (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGenericException(Exception ex) {
         log.error("Unexpected error: ", ex);

@@ -7,6 +7,7 @@ import com.clinic.doc_appointment.entity.Appointment;
 import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.entity.Review;
 import com.clinic.doc_appointment.enums.AppointmentStatus;
+import com.clinic.doc_appointment.exception.ForbiddenOperationException;
 import com.clinic.doc_appointment.exception.InvalidStateException;
 import com.clinic.doc_appointment.mapper.ReviewMapper;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
@@ -45,7 +46,7 @@ public class ReviewService {
 
         // 1. Validate ownership and status
         if (!appointment.getPatient().getPatientId().equals(patientId)) {
-            throw new InvalidStateException("You can only review your own appointments");
+            throw new ForbiddenOperationException("You can only review your own appointments");
         }
 
         if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
@@ -78,7 +79,7 @@ public class ReviewService {
         Review review = EntityFinder.findOrThrow(reviewRepository, reviewId, "Review not found");
 
         if (!review.getDoctor().getDoctorId().equals(doctorId)) {
-            throw new InvalidStateException("You can only reply to reviews addressed to you");
+            throw new ForbiddenOperationException("You can only reply to reviews addressed to you");
         }
 
         review.setDoctorReply(request.getReply())

@@ -4,6 +4,8 @@ import com.clinic.doc_appointment.dto.response.NotificationResponse;
 import com.clinic.doc_appointment.entity.Notification;
 import com.clinic.doc_appointment.entity.UserDevice;
 import com.clinic.doc_appointment.enums.NotificationType;
+import com.clinic.doc_appointment.exception.ForbiddenOperationException;
+import com.clinic.doc_appointment.exception.ResourceNotFoundException;
 import com.clinic.doc_appointment.mapper.NotificationMapper;
 import com.clinic.doc_appointment.repository.NotificationRepository;
 import com.clinic.doc_appointment.service.push.PushMessage;
@@ -76,10 +78,10 @@ public class NotificationService {
     @Transactional
     public void markAsRead(String notificationId, String userId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
 
         if (!notification.getUserId().equals(userId)) {
-            throw new RuntimeException("Unauthorized to access this notification");
+            throw new ForbiddenOperationException("Unauthorized to access this notification");
         }
 
         notification.setRead(true);

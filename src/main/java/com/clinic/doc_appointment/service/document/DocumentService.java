@@ -4,7 +4,7 @@ import com.clinic.doc_appointment.dto.response.DocumentResponse;
 import com.clinic.doc_appointment.entity.Appointment;
 import com.clinic.doc_appointment.entity.AppointmentDocument;
 import com.clinic.doc_appointment.enums.Role;
-import com.clinic.doc_appointment.exception.InvalidStateException;
+import com.clinic.doc_appointment.exception.ForbiddenOperationException;
 import com.clinic.doc_appointment.mapper.DocumentMapper;
 import com.clinic.doc_appointment.repository.AppointmentDocumentRepository;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
@@ -69,7 +69,7 @@ public class DocumentService {
 
         // Only the actual uploader or the Doctor can delete
         if (!doc.getUploaderId().equals(userId) && role != Role.DOCTOR) {
-             throw new InvalidStateException("You do not have permission to delete this file");
+             throw new ForbiddenOperationException("You do not have permission to delete this file");
         }
 
         // Delete the physical encrypted file
@@ -98,11 +98,11 @@ public class DocumentService {
     private void validateAccess(Appointment appointment, String userId, Role role) {
         // Patient check
         if (role == Role.PATIENT && !appointment.getPatient().getPatientId().equals(userId)) {
-            throw new InvalidStateException("Access Denied: Appointment does not belong to this patient.");
+            throw new ForbiddenOperationException("Access Denied: Appointment does not belong to this patient.");
         }
         // Doctor check
         if (role == Role.DOCTOR && !appointment.getDoctor().getDoctorId().equals(userId)) {
-            throw new InvalidStateException("Access Denied: Appointment does not belong to this doctor.");
+            throw new ForbiddenOperationException("Access Denied: Appointment does not belong to this doctor.");
         }
     }
 }
