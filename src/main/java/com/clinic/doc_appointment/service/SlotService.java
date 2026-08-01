@@ -184,15 +184,17 @@ public class SlotService {
     public void deleteSlotsByDoctorAndDate(String doctorId, LocalDate date) {
         log.info("Deleting slots for doctor: {} on date: {}", doctorId, date);
 
-        // Check if any slots are booked
-        List<DoctorAvailability> slots = slotRepository.findByDoctorDoctorIdAndSlotDate(doctorId, date);
-        boolean hasBookedSlots = slots.stream().anyMatch(slot -> !slot.getIsAvailable());
+        // Lock the date's slots (SELECT ... FOR UPDATE) so a concurrent booking cannot
+        // flip availability between this check and the delete (TOCTOU guard).
+        List<DoctorAvailability> slots = slotRepository.findByDoctorAndDateForUpdate(doctorId, date);
 
+        boolean hasBookedSlots = slots.stream().anyMatch(slot -> !slot.getIsAvailable());
         if (hasBookedSlots) {
             throw new BookedSlotException("Cannot delete slots that are already booked");
         }
 
-        slotRepository.deleteByDoctorDoctorIdAndSlotDate(doctorId, date);
+        // Delete exactly the locked, inspected rows (versioned entity deletes).
+        slotRepository.deleteAll(slots);
         log.info("Deleted all slots for doctor: {} on date: {}", doctorId, date);
     }
 }

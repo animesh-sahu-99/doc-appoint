@@ -2,7 +2,9 @@
 package com.clinic.doc_appointment.repository;
 
 import com.clinic.doc_appointment.entity.DoctorAvailability;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -55,6 +57,12 @@ public interface DoctorAvailabilityRepository extends JpaRepository<DoctorAvaila
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
 
-    // Delete slots for a doctor on a specific date
-    void deleteByDoctorDoctorIdAndSlotDate(String doctorId, LocalDate slotDate);
+    // Lock the doctor's slots for a date (SELECT ... FOR UPDATE) so a concurrent booking
+    // cannot flip availability between a check and a bulk delete (TOCTOU guard).
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM DoctorAvailability s " +
+            "WHERE s.doctor.doctorId = :doctorId AND s.slotDate = :date")
+    List<DoctorAvailability> findByDoctorAndDateForUpdate(
+            @Param("doctorId") String doctorId,
+            @Param("date") LocalDate date);
 }
