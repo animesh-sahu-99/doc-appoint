@@ -5,9 +5,9 @@ spring:
     name: doc-appointment
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/doc_appointment_db
-    username: admin
-    password: password
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/doc_appointment_db}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -26,22 +26,51 @@ springdoc:
   show-actuator: false
 
 # JWT Configuration
+# NOTE: the ${VAR:default} form only makes these overridable — an unset JWT_SECRET still boots
+# with the committed value. JwtService logs an ERROR when it does; a deploy-time check that
+# JWT_SECRET is present is the actual safeguard.
 jwt:
-  secret: doc-appointment-super-secret-key-change-in-production-2024
-  expiration: 86400000  # 24 hours in milliseconds
+  secret: ${JWT_SECRET:doc-appointment-super-secret-key-change-in-production-2024}
+  # ACCESS token lifetime. Key name kept as `jwt.expiration` so any environment already setting
+  # it externally keeps working. 1h during the refresh-token rollout; drop to 900000 (15m) once
+  # most installs are on a build that refreshes — that step is config-only, no redeploy.
+  expiration: ${JWT_ACCESS_EXPIRATION:3600000}
+  # Reject access tokens with no `typ` claim. Leave false until tokens issued before this
+  # release have expired, or every existing session is logged out on deploy.
+  require-token-type: ${JWT_REQUIRE_TOKEN_TYPE:false}
+  refresh:
+    expiration: ${JWT_REFRESH_EXPIRATION:2592000000}                     # 30d, slides on each rotation
+    absolute-expiration: ${JWT_REFRESH_ABSOLUTE_EXPIRATION:7776000000}   # 90d hard cap per session
+    grace-seconds: ${JWT_REFRESH_GRACE_SECONDS:15}                       # concurrent-refresh leeway before a replay counts as reuse
+    reuse-revokes-all-user-tokens: ${JWT_REFRESH_REUSE_NUKES_USER:false} # false = revoke only the affected session
+    max-active-per-user: ${JWT_REFRESH_MAX_PER_USER:10}
+    cleanup-millis: ${JWT_REFRESH_CLEANUP_MILLIS:3600000}                # hourly purge sweep
+    retain-revoked-days: ${JWT_REFRESH_RETAIN_REVOKED_DAYS:7}            # keep revoked rows, or replays stop being detectable
 
-# Login brute-force rate limiting (per client IP, in-memory)
+# WebSocket
+websocket:
+  # When true, a CONNECT with a bad token is rejected with a STOMP ERROR frame instead of
+  # silently establishing an unauthenticated session. Enable only once clients handle the frame.
+  reject-unauthenticated-connect: ${WS_REJECT_UNAUTHENTICATED_CONNECT:false}
+
+# Brute-force rate limiting (per client IP, in-memory)
 ratelimit:
   login:
-    max-attempts: 5          # failed attempts before an IP is blocked
-    block-minutes: 15        # how long a blocked IP must wait
-    trust-forwarded-for: false  # only enable behind a trusted reverse proxy
+    max-attempts: ${RATELIMIT_LOGIN_MAX_ATTEMPTS:5}          # failed attempts before an IP is blocked
+    block-minutes: ${RATELIMIT_LOGIN_BLOCK_MINUTES:15}       # how long a blocked IP must wait
+    trust-forwarded-for: ${RATELIMIT_TRUST_FORWARDED_FOR:false}  # only enable behind a trusted reverse proxy
+  refresh:
+    # Looser than login on purpose: mobile carriers put many subscribers behind one NAT address,
+    # and these count failures only — a working client's refreshes succeed and reset the counter.
+    max-attempts: ${RATELIMIT_REFRESH_MAX_ATTEMPTS:20}
+    block-minutes: ${RATELIMIT_REFRESH_BLOCK_MINUTES:5}
+    cleanup-millis: ${RATELIMIT_REFRESH_CLEANUP_MILLIS:600000}
 
 # File Storage Configuration
 file:
-  upload-dir: uploads
+  upload-dir: ${FILE_UPLOAD_DIR:uploads}
   encryption:
-    secret: my-secret-encryption-key-32bytes! # 32 chars for AES-256
+    secret: ${FILE_ENC_SECRET:my-secret-encryption-key-32bytes!} # 32 chars for AES-256
 
 # Spring Multipart Configuration
 spring.servlet.multipart:

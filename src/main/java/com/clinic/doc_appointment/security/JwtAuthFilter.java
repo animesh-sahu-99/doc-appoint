@@ -1,5 +1,7 @@
 package com.clinic.doc_appointment.security;
 
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,6 +12,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -53,13 +56,24 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    // Signature and expiry are fine, but the token is not usable as an access
+                    // credential here — wrong owner, or a non-access token type.
+                    request.setAttribute(JwtAuthEntryPoint.JWT_ERROR_ATTR, JwtAuthEntryPoint.ERROR_INVALID);
                 }
             }
-        } catch (Exception e) {
+        } catch (ExpiredJwtException e) {
+            // Recoverable: the client should refresh rather than log the user out. The entry
+            // point turns this into the X-Token-Expired hint.
+            request.setAttribute(JwtAuthEntryPoint.JWT_ERROR_ATTR, JwtAuthEntryPoint.ERROR_EXPIRED);
+            log.debug("Expired access token for request to {}", request.getRequestURI());
+        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException e) {
+            request.setAttribute(JwtAuthEntryPoint.JWT_ERROR_ATTR, JwtAuthEntryPoint.ERROR_INVALID);
             log.warn("JWT validation failed for request to {}: {}", request.getRequestURI(), e.getMessage());
-            // Don't set authentication — request will be rejected by security config
         }
 
+        // Always continue the chain, even after a failure: public endpoints (/api/auth/**,
+        // swagger) must still be served when a request happens to carry a stale token.
         filterChain.doFilter(request, response);
     }
 }

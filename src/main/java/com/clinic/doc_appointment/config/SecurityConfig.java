@@ -71,7 +71,10 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-        config.setExposedHeaders(List.of("Authorization"));
+        // X-Token-Expired tells a client a 401 is fixable by refreshing. React Native's fetch
+        // ignores CORS so this is a no-op today, but a browser client would silently be denied
+        // the header — a baffling bug to diagnose later for the sake of one word here.
+        config.setExposedHeaders(List.of("Authorization", JwtAuthEntryPoint.TOKEN_EXPIRED_HEADER));
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

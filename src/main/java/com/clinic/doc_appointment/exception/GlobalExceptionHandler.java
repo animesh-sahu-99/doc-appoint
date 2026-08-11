@@ -29,6 +29,16 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Invalid email or password"));
     }
 
+    // ✅ Handle unusable refresh tokens (expired, revoked, unknown, replayed)
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        // The specific reason stays server-side: returning it would let a caller probe which
+        // tokens exist, and tell an attacker their replay was the thing that got detected.
+        log.warn("Refresh rejected: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error("Invalid or expired refresh token"));
+    }
+
     // ✅ Handle Duplicate Resource (email/phone already exists)
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ApiResponse<Void>> handleDuplicateResource(DuplicateResourceException ex) {

@@ -5,7 +5,8 @@ import com.clinic.doc_appointment.dto.response.AuthResponse;
 import com.clinic.doc_appointment.entity.Patient;
 import com.clinic.doc_appointment.enums.Role;
 import com.clinic.doc_appointment.repository.PatientRepository;
-import com.clinic.doc_appointment.security.JwtService;
+import com.clinic.doc_appointment.security.IssuedTokens;
+import com.clinic.doc_appointment.security.TokenIssuer;
 import com.clinic.doc_appointment.security.UserPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,10 +23,10 @@ public class PatientRegistrationService extends AbstractRegistrationService<Pati
     private final RegistrationValidator registrationValidator;
 
     public PatientRegistrationService(PasswordEncoder passwordEncoder,
-                                      JwtService jwtService,
+                                      TokenIssuer tokenIssuer,
                                       PatientRepository patientRepository,
                                       RegistrationValidator registrationValidator) {
-        super(passwordEncoder, jwtService);
+        super(passwordEncoder, tokenIssuer);
         this.patientRepository = patientRepository;
         this.registrationValidator = registrationValidator;
     }
@@ -60,9 +61,8 @@ public class PatientRegistrationService extends AbstractRegistrationService<Pati
     }
 
     @Override
-    protected AuthResponse toAuthResponse(Patient saved, String token) {
-        return AuthResponse.builder()
-                .token(token)
+    protected AuthResponse toAuthResponse(Patient saved, IssuedTokens tokens) {
+        return tokens.decorate(AuthResponse.builder())
                 .role(Role.PATIENT.authority())
                 .userId(saved.getPatientId())
                 .email(saved.getEmail())

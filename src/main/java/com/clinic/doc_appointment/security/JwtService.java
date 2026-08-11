@@ -1,8 +1,11 @@
 package com.clinic.doc_appointment.security;
 
+import com.clinic.doc_appointment.enums.TokenType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -14,19 +17,64 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * Issues and verifies <em>access</em> tokens. Refresh tokens are opaque strings handled by
+ * {@link RefreshTokenService} and never pass through here.
+ */
 @Service
+@Slf4j
 public class JwtService {
 
-    @Value("${jwt.secret}")
-    private String secretKey;
+    /** The committed development secret. Fine locally, never acceptable in production. */
+    private static final String DEFAULT_DEV_SECRET =
+            "doc-appointment-super-secret-key-change-in-production-2024";
 
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
+    /** HS256 requires a key of at least 256 bits. */
+    private static final int MIN_SECRET_BYTES = 32;
+
+    private final String secretKey;
+    private final long jwtExpiration;
+    private final boolean requireTokenType;
+
+    /**
+     * Constructor injection (rather than {@code @Value} fields) so the class can be unit-tested
+     * without {@code ReflectionTestUtils}, and to match {@link LoginRateLimiter}.
+     */
+    public JwtService(
+            @Value("${jwt.secret}") String secretKey,
+            @Value("${jwt.expiration}") long jwtExpiration,
+            @Value("${jwt.require-token-type:false}") boolean requireTokenType) {
+        this.secretKey = secretKey;
+        this.jwtExpiration = jwtExpiration;
+        this.requireTokenType = requireTokenType;
+    }
+
+    /**
+     * Fail fast on a key too short to sign with, and warn loudly if the committed development
+     * secret is still in use. The weak-secret case only logs — throwing would break every
+     * developer's machine on first run, and the real fix is a deploy-time check that
+     * {@code JWT_SECRET} is set.
+     */
+    @PostConstruct
+    void validateSecret() {
+        int length = secretKey == null ? 0 : secretKey.getBytes(StandardCharsets.UTF_8).length;
+        if (length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes for HMAC-SHA signing, but was "
+                            + length + ". Set the JWT_SECRET environment variable.");
+        }
+        if (DEFAULT_DEV_SECRET.equals(secretKey)) {
+            log.error("jwt.secret is still the committed development default. "
+                    + "Set the JWT_SECRET environment variable before deploying.");
+        }
+    }
 
     public String generateToken(UserPrincipal userPrincipal) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", userPrincipal.getRole());
         claims.put("userId", userPrincipal.getId());
+        // Payload claim named "typ" — distinct from the JOSE header "typ", which jjwt sets itself.
+        claims.put("typ", TokenType.ACCESS.getClaimValue());
         return buildToken(claims, userPrincipal.getEmail(), jwtExpiration);
     }
 
@@ -40,9 +88,32 @@ public class JwtService {
                 .compact();
     }
 
+    /**
+     * True when {@code token} is a live <em>access</em> token belonging to {@code userDetails}.
+     *
+     * <p>The token-type check lives here, rather than at each call site, so {@link JwtAuthFilter}
+     * and {@link WebSocketAuthInterceptor} both get it with no chance of one being missed.
+     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
+        if (!isAcceptableAccessType(extractTokenType(token))) {
+            return false;
+        }
         final String email = extractEmail(token);
-        return email.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        // Null subject is reachable: a patient may register without an email, producing a
+        // token with no `sub`. Guard rather than NPE into the filter's catch block.
+        return email != null && email.equals(userDetails.getUsername()) && !isTokenExpired(token);
+    }
+
+    /**
+     * Tokens issued before the {@code typ} claim existed carry no type. They are accepted while
+     * {@code jwt.require-token-type} is false so a deploy does not log everyone out; flip the
+     * flag once those tokens have aged out.
+     */
+    private boolean isAcceptableAccessType(String tokenType) {
+        if (tokenType == null) {
+            return !requireTokenType;
+        }
+        return TokenType.ACCESS.getClaimValue().equals(tokenType);
     }
 
     public String extractEmail(String token) {
@@ -55,6 +126,16 @@ public class JwtService {
 
     public String extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("userId", String.class));
+    }
+
+    /** Value of the {@code typ} payload claim, or null for a token issued before it existed. */
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> claims.get("typ", String.class));
+    }
+
+    /** Access-token lifetime in seconds, for the {@code expiresIn} field of the auth response. */
+    public long getAccessExpirationSeconds() {
+        return jwtExpiration / 1000L;
     }
 
     private boolean isTokenExpired(String token) {
