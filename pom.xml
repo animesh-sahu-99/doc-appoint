@@ -123,6 +123,13 @@
 			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
+		<!-- ✅ Actuator — health endpoint + Micrometer metrics for push delivery.
+		     Endpoint exposure is narrowed in application.yaml and secured in SecurityConfig. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+
 		<!-- ✅ Firebase Cloud Messaging (Push Notifications) -->
 		<dependency>
 			<groupId>com.google.firebase</groupId>

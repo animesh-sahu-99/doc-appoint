@@ -43,7 +43,12 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/v3/api-docs/**",
             "/v3/api-docs",
-            "/ws-endpoint/**"
+            "/ws-endpoint/**",
+            // Liveness/readiness probes must work without a token. Everything else under
+            // /actuator stays authenticated — see the explicit rule in the filter chain.
+            "/actuator/health",
+            "/actuator/health/**",
+            "/actuator/info"
     };
 
     @Bean
@@ -57,6 +62,10 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        // Belt-and-braces: any actuator endpoint beyond the public probes above
+                        // requires authentication, so widening management.endpoints.web.exposure
+                        // can never silently publish one.
+                        .requestMatchers("/actuator/**").authenticated()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

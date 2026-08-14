@@ -4,6 +4,19 @@ spring:
   application:
     name: doc-appointment
 
+  task:
+    scheduling:
+      # The push outbox worker polls every second and does blocking network I/O. Boot's default
+      # scheduler pool is 1, shared with the three token/rate-limit sweeps — a hung FCM call there
+      # would stall all scheduled work.
+      pool-size: ${SCHEDULER_POOL_SIZE:4}
+      thread-name-prefix: scheduling-
+      shutdown:
+        # Lets an in-flight drain finish and RECORD its outcome on a graceful shutdown, which
+        # closes the duplicate-push window for the common deploy case.
+        await-termination: true
+        await-termination-period: 30s
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/doc_appointment_db}
     username: ${DB_USERNAME:admin}
@@ -46,6 +59,49 @@ jwt:
     max-active-per-user: ${JWT_REFRESH_MAX_PER_USER:10}
     cleanup-millis: ${JWT_REFRESH_CLEANUP_MILLIS:3600000}                # hourly purge sweep
     retain-revoked-days: ${JWT_REFRESH_RETAIN_REVOKED_DAYS:7}            # keep revoked rows, or replays stop being detectable
+
+# Push delivery — transactional outbox.
+# A notification's push is written to push_outbox in the SAME transaction as the notification
+# itself, then delivered off the request thread by PushOutboxWorker with retries. Nothing blocks
+# the HTTP response on Google, and a failed push is a queryable row rather than a lost log line.
+push:
+  outbox:
+    enabled: ${PUSH_OUTBOX_ENABLED:true}                          # false PAUSES the worker; rows queue and drain on re-enable
+    poll-millis: ${PUSH_OUTBOX_POLL_MILLIS:1000}                  # worst-case added push latency
+    batch-size: ${PUSH_OUTBOX_BATCH_SIZE:50}                      # rows per drain; bounds one cycle's blocking time
+    lease-millis: ${PUSH_OUTBOX_LEASE_MILLIS:120000}              # claimed rows become due again after this — the crash-recovery window.
+                                                                  # MUST exceed the worst-case send time or duplicates result.
+    max-attempts: ${PUSH_OUTBOX_MAX_ATTEMPTS:5}                   # then DEAD
+    backoff-millis: ${PUSH_OUTBOX_BACKOFF_MILLIS:15000}           # first retry delay; doubles each attempt, ±20% jitter
+    backoff-multiplier: ${PUSH_OUTBOX_BACKOFF_MULTIPLIER:2.0}
+    max-backoff-millis: ${PUSH_OUTBOX_MAX_BACKOFF_MILLIS:900000}  # 15m cap
+    cleanup-millis: ${PUSH_OUTBOX_CLEANUP_MILLIS:3600000}         # hourly purge sweep
+    retain-sent-days: ${PUSH_OUTBOX_RETAIN_SENT_DAYS:3}
+    retain-dead-days: ${PUSH_OUTBOX_RETAIN_DEAD_DAYS:30}          # DEAD rows are the forensic record — keep them
+    report-millis: ${PUSH_OUTBOX_REPORT_MILLIS:300000}            # backlog health line
+    backlog-warn: ${PUSH_OUTBOX_BACKLOG_WARN:100}                 # pending rows above which that line logs at WARN
+
+# Firebase Cloud Messaging
+fcm:
+  # Any Spring resource location, so the same build works whether the service account is packaged
+  # on the classpath or mounted at deploy time (e.g. file:/etc/secrets/firebase-service-account.json).
+  credentials-location: ${FCM_CREDENTIALS_LOCATION:classpath:firebase-service-account.json}
+  batch-size: ${FCM_BATCH_SIZE:500}                               # FCM's hard cap; clamped in code
+  android-channel-id: ${FCM_ANDROID_CHANNEL_ID:medibook_channel}  # must match the channel the Android client creates
+  sound: ${FCM_SOUND:default}
+  # Credentials present but unreadable is a broken deploy, not a local-dev state: fail startup
+  # rather than silently boot an instance that delivers nothing. A MISSING file always degrades.
+  fail-on-invalid-credentials: ${FCM_FAIL_ON_INVALID_CREDENTIALS:true}
+
+# Actuator — only health and info are public; see SecurityConfig.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${ACTUATOR_ENDPOINTS:health,info}
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_DETAILS:when-authorized}
 
 # WebSocket
 websocket:
