@@ -10,6 +10,7 @@ import java.time.LocalDate;
 public class PatientRegistrationRequest {
 
     @NotBlank(message = "Name is required")
+    @Size(max = 100, message = "Name must not exceed 100 characters")
     private String name;
 
     @Email(message = "Invalid email format")
@@ -29,5 +30,6 @@ public class PatientRegistrationRequest {
 
     private Gender gender;
     private LocalDate dateOfBirth;
+    @Size(max = 500, message = "Address must not exceed 500 characters")
     private String address;
 }

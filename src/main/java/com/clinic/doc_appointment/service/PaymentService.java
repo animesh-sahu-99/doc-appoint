@@ -6,10 +6,13 @@ import com.clinic.doc_appointment.entity.Appointment;
 import com.clinic.doc_appointment.entity.Payment;
 import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.PaymentRepository;
+import com.clinic.doc_appointment.security.AppointmentAccessGuard;
+import com.clinic.doc_appointment.security.UserPrincipal;
 import com.clinic.doc_appointment.service.payment.PaymentContext;
 import com.clinic.doc_appointment.service.payment.PaymentResult;
 import com.clinic.doc_appointment.service.payment.PaymentStrategy;
 import com.clinic.doc_appointment.service.payment.PaymentStrategyFactory;
+import com.clinic.doc_appointment.exception.InvalidStateException;
 import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,11 +36,22 @@ public class PaymentService {
     private final AppointmentRepository appointmentRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentStrategyFactory paymentStrategyFactory;
+    private final AppointmentAccessGuard accessGuard;
 
     @Transactional
-    public PaymentResponse initiatePayment(PaymentRequest request) {
+    public PaymentResponse initiatePayment(PaymentRequest request, UserPrincipal caller) {
         Appointment appointment = EntityFinder.findOrThrow(appointmentRepository,
                 request.getAppointmentId(), "Appointment not found with ID: " + request.getAppointmentId());
+
+        // Only the patient the appointment belongs to may pay for it. Without this any signed-in
+        // user could raise a payment row against a stranger's consultation.
+        accessGuard.assertOwnsAppointmentAsPatient(caller, appointment);
+
+        // Payment is one-to-one with Appointment, so a second attempt would fail on a unique key and
+        // surface as an unexplained conflict.
+        if (paymentRepository.findByAppointmentAppointmentId(appointment.getAppointmentId()).isPresent()) {
+            throw new InvalidStateException("A payment has already been initiated for this appointment.");
+        }
 
         BigDecimal amount = appointment.getDoctor().getConsultationFee();
 
@@ -59,7 +73,12 @@ public class PaymentService {
         return toResponse(saved, result.message());
     }
 
-    public PaymentResponse getPaymentForAppointment(String appointmentId) {
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentForAppointment(String appointmentId, UserPrincipal caller) {
+        Appointment appointment = EntityFinder.findOrThrow(appointmentRepository, appointmentId,
+                "Appointment not found with ID: " + appointmentId);
+        accessGuard.assertCanViewAppointment(caller, appointment);
+
         Payment payment = EntityFinder.orThrow(
                 paymentRepository.findByAppointmentAppointmentId(appointmentId),
                 "Payment not found for appointment: " + appointmentId);

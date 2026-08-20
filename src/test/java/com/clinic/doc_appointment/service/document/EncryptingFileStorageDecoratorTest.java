@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.Resource;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -23,8 +22,9 @@ class EncryptingFileStorageDecoratorTest {
     Path tempDir;
 
     private EncryptingFileStorageDecorator newDecorator() {
-        CryptoUtils crypto = new CryptoUtils();
-        ReflectionTestUtils.setField(crypto, "encryptionKeyStr", "unit-test-secret-key-please-change");
+        // Constructor injection replaced the @Value field, so no reflection is needed to set the key.
+        // The key is 33 bytes, comfortably over the 32 the AES-256 guard requires.
+        CryptoUtils crypto = new CryptoUtils("unit-test-secret-key-please-change", "");
         LocalFileStorageService storage = new LocalFileStorageService(tempDir.toString());
         storage.init();
         return new EncryptingFileStorageDecorator(storage, crypto);

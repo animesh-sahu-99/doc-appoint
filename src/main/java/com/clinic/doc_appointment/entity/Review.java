@@ -34,15 +34,15 @@ public class Review {
         }
     }
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id", unique = true, nullable = false)
     private Appointment appointment;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 

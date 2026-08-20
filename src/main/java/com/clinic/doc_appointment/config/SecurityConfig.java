@@ -35,7 +35,7 @@ public class SecurityConfig {
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final UserDetailsService userDetailsService;
 
-    // ✅ Public endpoints — no token required
+    // Public endpoints - no token required
     private static final String[] PUBLIC_URLS = {
             "/",
             "/api/auth/**",
@@ -54,7 +54,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))  // ✅ Global CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(jwtAuthEntryPoint))
@@ -73,7 +73,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ Global CORS configuration — applies to ALL controllers
+    // Global CORS configuration - applies to ALL controllers
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

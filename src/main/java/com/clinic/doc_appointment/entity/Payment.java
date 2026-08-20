@@ -35,7 +35,7 @@ public class Payment {
     }
 
     @JsonBackReference
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id", nullable = false)
     private Appointment appointment;
 

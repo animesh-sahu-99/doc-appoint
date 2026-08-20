@@ -34,3 +34,16 @@ build/
 
 ### Firebase ###
 src/main/resources/firebase-service-account.json
+
+### Build / diagnostic logs accidentally committed ###
+build_log.txt
+compile.log
+error.txt
+error-utf8.txt
+*.log
+
+### Uploaded patient documents.
+### These are encrypted, but the AES key was committed alongside them in application.yaml, so the
+### ciphertext in version control is readable by anyone with the repository. They are runtime data
+### and do not belong in git at all.
+uploads/

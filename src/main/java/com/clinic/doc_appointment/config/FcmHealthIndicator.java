@@ -50,18 +50,36 @@ public class FcmHealthIndicator implements HealthIndicator {
                 .build();
     }
 
+    /**
+     * Always reports UP, adding {@code pushDegraded} plus a reason when something is wrong.
+     *
+     * <p>This indicator is aggregated into {@code /actuator/health}, which is the natural readiness
+     * probe and maps DOWN to HTTP 503. Reporting DOWN here therefore removed the instance from the
+     * load balancer — and because DEAD rows are retained for {@code retain-dead-days} (30 by design,
+     * so an abandoned push stays visible), a single uninstalled app would have kept the service out
+     * of rotation for a month. {@code OUT_OF_SERVICE} was no better: it is also 503, which
+     * contradicted the intent of not failing a developer machine that simply has no credentials.
+     *
+     * <p>The details below are the alerting signal, together with the periodic WARN in
+     * {@code PushOutboxWorker.reportBacklog}. Ops can alert on {@code pushDegraded} without the
+     * probe killing a process whose HTTP surface is perfectly healthy.
+     */
     private Health.Builder baseStatus(long pending, long dead) {
         if (messaging == null) {
-            // OUT_OF_SERVICE rather than DOWN: a developer machine with no credentials should not
-            // fail its own readiness probe over a feature it was never given.
-            return Health.outOfService().withDetail("reason", "no Firebase credentials configured");
+            return degraded("no Firebase credentials configured");
         }
         if (dead > 0) {
-            return Health.down().withDetail("reason", dead + " push notification(s) abandoned after retries");
+            return degraded(dead + " push notification(s) abandoned after retries");
         }
         if (pending > properties.getBacklogWarn()) {
-            return Health.down().withDetail("reason", "push backlog of " + pending + " exceeds threshold");
+            return degraded("push backlog of " + pending + " exceeds threshold");
         }
-        return Health.up();
+        return Health.up().withDetail("pushDegraded", false);
+    }
+
+    private Health.Builder degraded(String reason) {
+        return Health.up()
+                .withDetail("pushDegraded", true)
+                .withDetail("reason", reason);
     }
 }

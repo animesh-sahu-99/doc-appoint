@@ -38,7 +38,7 @@ public class DoctorAvailability {
     @Version
     private Long version;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false )
     @JsonBackReference
     private Doctor doctor;
@@ -58,7 +58,7 @@ public class DoctorAvailability {
     @Column(nullable = false)
     private Boolean isAvailable = true;
 
-    @OneToOne(mappedBy = "slot")
+    @OneToOne(mappedBy = "slot", fetch = FetchType.LAZY)
     private Appointment appointment;
 
     @CreationTimestamp

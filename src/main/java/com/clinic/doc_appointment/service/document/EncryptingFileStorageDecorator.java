@@ -1,5 +1,6 @@
 package com.clinic.doc_appointment.service.document;
 
+import com.clinic.doc_appointment.exception.FileStorageException;
 import com.clinic.doc_appointment.util.CryptoUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.UUID;
@@ -42,7 +44,7 @@ public class EncryptingFileStorageDecorator implements FileStorageService {
         }
 
         // Unique, encryption-suffixed name (unchanged convention).
-        String fileName = UUID.randomUUID().toString() + extension + ".enc";
+        String fileName = UUID.randomUUID() + extension + ".enc";
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try (InputStream in = file.getInputStream();
@@ -50,7 +52,8 @@ public class EncryptingFileStorageDecorator implements FileStorageService {
             in.transferTo(encrypted);
             // closing 'encrypted' (reverse order) flushes the cipher's final block into the buffer
         } catch (Exception ex) {
-            throw new RuntimeException("Could not store and encrypt file " + fileName + ". Please try again!", ex);
+            // getEncryptedOutputStream declares `throws Exception` (cipher setup), so this cannot be narrowed.
+            throw new FileStorageException("Could not store and encrypt file " + fileName + ". Please try again!", ex);
         }
 
         storage.store(new ByteArrayInputStream(buffer.toByteArray()), fileName);
@@ -58,14 +61,25 @@ public class EncryptingFileStorageDecorator implements FileStorageService {
         return fileName;
     }
 
+    /**
+     * Opens a decrypting stream over the stored ciphertext.
+     *
+     * <p>The underlying stream is closed by hand if wrapping it fails. Nobody else can do it: the
+     * caller only ever receives the wrapped {@link Resource}, so when {@code getDecryptedInputStream}
+     * threw — a truncated file, a rotated key, any cipher init failure — the open file descriptor
+     * was simply abandoned. A corrupt file plus a retrying client leaked one descriptor per attempt
+     * until the process hit its limit.
+     */
     @Override
     public Resource loadFileAsResource(String fileName) {
+        Resource encrypted = storage.load(fileName);
+        InputStream raw = null;
         try {
-            Resource encrypted = storage.load(fileName);
-            InputStream decrypted = cryptoUtils.getDecryptedInputStream(encrypted.getInputStream());
-            return new InputStreamResource(decrypted);
+            raw = encrypted.getInputStream();
+            return new InputStreamResource(cryptoUtils.getDecryptedInputStream(raw));
         } catch (Exception ex) {
-            throw new RuntimeException("Could not read file " + fileName, ex);
+            closeQuietly(raw, fileName);
+            throw new FileStorageException("Could not read file " + fileName, ex);
         }
     }
 
@@ -73,5 +87,16 @@ public class EncryptingFileStorageDecorator implements FileStorageService {
     public void deleteFile(String fileName) {
         storage.delete(fileName);
         log.info("Deleted encrypted file: {}", fileName);
+    }
+
+    private static void closeQuietly(InputStream stream, String fileName) {
+        if (stream == null) {
+            return;
+        }
+        try {
+            stream.close();
+        } catch (IOException suppressed) {
+            log.warn("Failed to close the underlying stream for {} after a decryption failure", fileName, suppressed);
+        }
     }
 }

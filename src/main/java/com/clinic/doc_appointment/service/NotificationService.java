@@ -33,6 +33,7 @@ public class NotificationService {
     private final PushOutboxRepository pushOutboxRepository;
     private final NotificationMapper notificationMapper;
 
+    @Transactional(readOnly = true)
     public Page<NotificationResponse> getUserNotifications(String userId, int page, int size) {
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
                 .map(notificationMapper::toResponse);
@@ -71,6 +72,7 @@ public class NotificationService {
         );
     }
 
+    @Transactional(readOnly = true)
     public int getUnreadCount(String userId) {
         return notificationRepository.countByUserIdAndIsReadFalse(userId);
     }

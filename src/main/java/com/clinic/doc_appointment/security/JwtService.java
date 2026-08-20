@@ -1,6 +1,7 @@
 package com.clinic.doc_appointment.security;
 
 import com.clinic.doc_appointment.enums.TokenType;
+import com.clinic.doc_appointment.util.CommittedSecretGuard;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -35,6 +36,7 @@ public class JwtService {
     private final String secretKey;
     private final long jwtExpiration;
     private final boolean requireTokenType;
+    private final String activeProfiles;
 
     /**
      * Constructor injection (rather than {@code @Value} fields) so the class can be unit-tested
@@ -43,29 +45,31 @@ public class JwtService {
     public JwtService(
             @Value("${jwt.secret}") String secretKey,
             @Value("${jwt.expiration}") long jwtExpiration,
-            @Value("${jwt.require-token-type:false}") boolean requireTokenType) {
+            @Value("${jwt.require-token-type:false}") boolean requireTokenType,
+            @Value("${spring.profiles.active:}") String activeProfiles) {
         this.secretKey = secretKey;
         this.jwtExpiration = jwtExpiration;
         this.requireTokenType = requireTokenType;
+        this.activeProfiles = activeProfiles;
     }
 
     /**
-     * Fail fast on a key too short to sign with, and warn loudly if the committed development
-     * secret is still in use. The weak-secret case only logs — throwing would break every
-     * developer's machine on first run, and the real fix is a deploy-time check that
-     * {@code JWT_SECRET} is set.
+     * Refuses to start on a key that is too short to sign with, or on the committed default outside
+     * the {@code dev} profile.
+     *
+     * <p>This used to only log an ERROR for the committed default, on the reasoning that throwing
+     * would break a developer's first run. The {@code dev} profile exemption gives developers that
+     * without leaving production one unset environment variable away from a signing key that anyone
+     * with repository access can read.
      */
     @PostConstruct
     void validateSecret() {
-        int length = secretKey == null ? 0 : secretKey.getBytes(StandardCharsets.UTF_8).length;
-        if (length < MIN_SECRET_BYTES) {
-            throw new IllegalStateException(
-                    "jwt.secret must be at least " + MIN_SECRET_BYTES + " bytes for HMAC-SHA signing, but was "
-                            + length + ". Set the JWT_SECRET environment variable.");
-        }
+        CommittedSecretGuard.requireUsableSecret(
+                "jwt.secret", "JWT_SECRET", secretKey, DEFAULT_DEV_SECRET, MIN_SECRET_BYTES, activeProfiles);
+
         if (DEFAULT_DEV_SECRET.equals(secretKey)) {
-            log.error("jwt.secret is still the committed development default. "
-                    + "Set the JWT_SECRET environment variable before deploying.");
+            log.warn("jwt.secret is the committed development default; permitted only because the "
+                    + "'dev' profile is active. Never run this configuration anywhere else.");
         }
     }
 

@@ -4,14 +4,9 @@ import com.clinic.doc_appointment.dto.request.DoctorRegistrationRequest;
 import com.clinic.doc_appointment.dto.request.LoginRequest;
 import com.clinic.doc_appointment.dto.request.PatientRegistrationRequest;
 import com.clinic.doc_appointment.dto.response.AuthResponse;
-import com.clinic.doc_appointment.entity.Doctor;
-import com.clinic.doc_appointment.entity.Patient;
 import com.clinic.doc_appointment.enums.RevocationReason;
 import com.clinic.doc_appointment.enums.Role;
 import com.clinic.doc_appointment.exception.InvalidRefreshTokenException;
-import com.clinic.doc_appointment.exception.ResourceNotFoundException;
-import com.clinic.doc_appointment.repository.DoctorRepository;
-import com.clinic.doc_appointment.repository.PatientRepository;
 import com.clinic.doc_appointment.security.IssuedTokens;
 import com.clinic.doc_appointment.security.LoginRateLimiter;
 import com.clinic.doc_appointment.security.RefreshPrincipalResolver;
@@ -41,10 +36,9 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class AuthService {
 
-    private final DoctorRepository doctorRepository;
-    private final PatientRepository patientRepository;
     private final TokenIssuer tokenIssuer;
     private final RefreshTokenService refreshTokenService;
+    private final RefreshPrincipalResolver refreshPrincipalResolver;
     private final AuthenticationManager authenticationManager;
     private final DoctorRegistrationService doctorRegistrationService;
     private final PatientRegistrationService patientRegistrationService;
@@ -68,6 +62,47 @@ public class AuthService {
         }
     }
 
+    /**
+     * The whole login flow, parameterised by the role the endpoint is for.
+     *
+     * <p>This was two methods differing only in a {@link Role}, a repository and a message — the
+     * branch-on-type smell, spread across methods instead of an {@code if}. A third role would have
+     * meant a third copy.
+     *
+     * <p>The display name comes from {@link RefreshPrincipalResolver}, which already maps
+     * {@code (id, role)} to a principal plus a name in one lookup and is what the refresh path uses.
+     * Reusing it also removes a redundant query: the previous {@code findByEmail} re-read the row
+     * that {@code authenticationManager.authenticate} had just loaded via
+     * {@link com.clinic.doc_appointment.security.CustomUserDetailsService}.
+     */
+    private AuthResponse login(LoginRequest request, TokenContext context, Role expectedRole) {
+        log.info("{} login attempt: {}", expectedRole, request.getEmail());
+
+        Authentication authentication = authenticate(request.getEmail(), request.getPassword(), context.ip());
+
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+
+        // A patient's credentials must not open a doctor session, and vice-versa. The message stays
+        // deliberately vague, matching the generic 401 a wrong password produces.
+        if (!expectedRole.authority().equals(principal.getRole())) {
+            throw new BadCredentialsException("Invalid credentials for this login");
+        }
+
+        IssuedTokens tokens = tokenIssuer.issueNewSession(principal, context);
+
+        // Unreachable-not-found in practice: authentication just proved the row exists. If it
+        // somehow raced a deletion, the resolver's exception is also a 401, so the client still sees
+        // a coherent answer rather than a 500.
+        String displayName = refreshPrincipalResolver.resolve(principal.getId(), expectedRole).displayName();
+
+        return tokens.decorate(AuthResponse.builder())
+                .role(expectedRole.authority())
+                .userId(principal.getId())
+                .email(principal.getEmail())
+                .name(displayName)
+                .build();
+    }
+
     // ===================== DOCTOR AUTH =====================
 
     public AuthResponse registerDoctor(DoctorRegistrationRequest request, TokenContext context) {
@@ -76,27 +111,7 @@ public class AuthService {
     }
 
     public AuthResponse loginDoctor(LoginRequest request, TokenContext context) {
-        log.info("Doctor login attempt: {}", request.getEmail());
-
-        Authentication authentication = authenticate(request.getEmail(), request.getPassword(), context.ip());
-
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-
-        if (!Role.DOCTOR.authority().equals(principal.getRole())) {
-            throw new BadCredentialsException("Invalid credentials for doctor login");
-        }
-
-        IssuedTokens tokens = tokenIssuer.issueNewSession(principal, context);
-
-        Doctor doctor = doctorRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with email: " + request.getEmail()));
-
-        return tokens.decorate(AuthResponse.builder())
-                .role(Role.DOCTOR.authority())
-                .userId(principal.getId())
-                .email(principal.getEmail())
-                .name(doctor.getFirstName())
-                .build();
+        return login(request, context, Role.DOCTOR);
     }
 
     // ===================== PATIENT AUTH =====================
@@ -107,27 +122,7 @@ public class AuthService {
     }
 
     public AuthResponse loginPatient(LoginRequest request, TokenContext context) {
-        log.info("Patient login attempt: {}", request.getEmail());
-
-        Authentication authentication = authenticate(request.getEmail(), request.getPassword(), context.ip());
-
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-
-        if (!Role.PATIENT.authority().equals(principal.getRole())) {
-            throw new BadCredentialsException("Invalid credentials for patient login");
-        }
-
-        IssuedTokens tokens = tokenIssuer.issueNewSession(principal, context);
-
-        Patient patient = patientRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Patient not found with email: " + request.getEmail()));
-
-        return tokens.decorate(AuthResponse.builder())
-                .role(Role.PATIENT.authority())
-                .userId(principal.getId())
-                .email(principal.getEmail())
-                .name(patient.getFirstName())
-                .build();
+        return login(request, context, Role.PATIENT);
     }
 
     // ===================== SESSION =====================

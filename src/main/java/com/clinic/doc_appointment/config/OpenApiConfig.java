@@ -39,7 +39,7 @@ public class OpenApiConfig {
                                 .url("https://api.clinic.com")
                                 .description("Production server")
                 ))
-                // ✅ Global JWT Bearer auth scheme
+                // Global JWT Bearer auth scheme
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()
                         .addSecuritySchemes(SECURITY_SCHEME_NAME, new SecurityScheme()

@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,14 +22,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 @Tag(name = "Authentication", description = "Login, registration and session endpoints for Doctors and Patients")
 public class AuthController {
 
     private final AuthService authService;
 
-    @Value("${ratelimit.login.trust-forwarded-for:false}")
-    private boolean trustForwardedFor;
+    /**
+     * Whether to believe {@code X-Forwarded-For} when identifying the client for rate limiting.
+     *
+     * <p>Constructor-injected and final rather than a {@code @Value} field, matching
+     * {@link com.clinic.doc_appointment.security.JwtService}, which documents the same choice: a
+     * field would leave this class untestable without reflection.
+     */
+    private final boolean trustForwardedFor;
+
+    public AuthController(AuthService authService,
+                          @Value("${ratelimit.login.trust-forwarded-for:false}") boolean trustForwardedFor) {
+        this.authService = authService;
+        this.trustForwardedFor = trustForwardedFor;
+    }
 
     private TokenContext contextOf(HttpServletRequest httpRequest) {
         return TokenContext.from(httpRequest, trustForwardedFor);

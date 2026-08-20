@@ -64,9 +64,8 @@ public class PushOutboxWorker {
             return;
         }
 
-        Instant now = Instant.now();
         List<PushOutboxMessage> due = outboxRepository.findDue(
-                PushOutboxStatus.CLAIMABLE, now, PageRequest.of(0, properties.getBatchSize()));
+                PushOutboxStatus.CLAIMABLE, Instant.now(), PageRequest.of(0, properties.getBatchSize()));
 
         if (due.isEmpty()) {
             return;   // deliberately silent: this runs every second
@@ -74,7 +73,7 @@ public class PushOutboxWorker {
 
         for (PushOutboxMessage row : due) {
             try {
-                deliver(row, now);
+                deliver(row);
             } catch (RuntimeException e) {
                 // One poisoned row must never abort the rest of the batch.
                 log.error("Unhandled error delivering push outbox row {} (notification {})",
@@ -83,7 +82,17 @@ public class PushOutboxWorker {
         }
     }
 
-    private void deliver(PushOutboxMessage row, Instant now) {
+    /**
+     * Claims one row, sends it, records the outcome.
+     *
+     * <p>The clock is read here, per row, rather than once for the whole batch. Deriving the lease
+     * from the start of the drain meant row <em>i</em> was claimed with an effective lease of
+     * {@code lease-millis} minus however long rows 0..i-1 took — which goes negative once a couple
+     * of sends run slow, handing out a claim that has already expired and is immediately
+     * re-claimable. That is a duplicate push to the user, not just skewed bookkeeping.
+     */
+    private void deliver(PushOutboxMessage row) {
+        Instant now = Instant.now();
         Instant leaseUntil = now.plusMillis(properties.getLeaseMillis());
 
         if (outboxRepository.claim(row.getId(), WORKER_ID, PushOutboxStatus.IN_FLIGHT,

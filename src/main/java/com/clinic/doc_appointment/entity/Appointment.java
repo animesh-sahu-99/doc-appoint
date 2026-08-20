@@ -43,16 +43,20 @@ public class Appointment {
     private String appointmentNumber;
 
     @JsonBackReference
-    @ManyToOne
+    // FetchType.LAZY is explicit because the JPA default for @ManyToOne/@OneToOne is EAGER.
+    // Left implicit, every read of this entity dragged the association along; the inverse
+    // @OneToOne below is the worst case, since an eager inverse side cannot be proxied and
+    // forces a dedicated SELECT per row. Fetch joins are declared per query instead.
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
     @JsonBackReference
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "slot_id", nullable = false)
     private DoctorAvailability slot;
 
@@ -65,7 +69,7 @@ public class Appointment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
-    @OneToOne(mappedBy = "appointment", cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "appointment", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Payment payment;
 
     @CreationTimestamp

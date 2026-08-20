@@ -4,9 +4,9 @@ import com.clinic.doc_appointment.dto.request.DoctorReplyRequest;
 import com.clinic.doc_appointment.dto.request.ReviewRequest;
 import com.clinic.doc_appointment.dto.response.ReviewResponse;
 import com.clinic.doc_appointment.entity.Appointment;
-import com.clinic.doc_appointment.entity.Doctor;
 import com.clinic.doc_appointment.entity.Review;
 import com.clinic.doc_appointment.enums.AppointmentStatus;
+import com.clinic.doc_appointment.enums.ReviewSort;
 import com.clinic.doc_appointment.exception.ForbiddenOperationException;
 import com.clinic.doc_appointment.exception.InvalidStateException;
 import com.clinic.doc_appointment.mapper.ReviewMapper;
@@ -19,12 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Service
@@ -68,8 +65,8 @@ public class ReviewService {
 
         review = reviewRepository.save(review);
 
-        // 4. Update Doctor Stats (Denormalization) — recomputed from source rows
-        updateDoctorStats(appointment.getDoctor());
+        // 4. Update Doctor Stats (Denormalization) — recomputed from source rows, atomically
+        doctorRepository.recomputeRatingStats(appointment.getDoctor().getDoctorId());
 
         return reviewMapper.toResponse(review);
     }
@@ -88,38 +85,11 @@ public class ReviewService {
         return reviewMapper.toResponse(reviewRepository.save(review));
     }
 
-    public Page<ReviewResponse> getDoctorReviews(String doctorId, String sortType, int page, int size) {
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
-
-        if ("high".equalsIgnoreCase(sortType)) {
-            sort = Sort.by(Sort.Direction.DESC, "rating").and(Sort.by(Sort.Direction.DESC, "createdAt"));
-        } else if ("low".equalsIgnoreCase(sortType)) {
-            sort = Sort.by(Sort.Direction.ASC, "rating").and(Sort.by(Sort.Direction.DESC, "createdAt"));
-        }
-
-        Pageable pageable = PageRequest.of(page, size, sort);
+    @Transactional(readOnly = true)
+    public Page<ReviewResponse> getDoctorReviews(String doctorId, ReviewSort sortType, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, sortType.sort());
         return reviewRepository.findByDoctorDoctorId(doctorId, pageable)
                 .map(reviewMapper::toResponse);
     }
 
-    /**
-     * Recompute the doctor's denormalized rating stats directly from the Review rows.
-     * Deriving from source (not from the previously-rounded average) avoids compounding
-     * rounding drift and self-heals any prior drift on the next review.
-     */
-    private void updateDoctorStats(Doctor doctor) {
-        long totalReviews = reviewRepository.countByDoctorDoctorId(doctor.getDoctorId());
-        Double avg = reviewRepository.findAverageRatingByDoctorId(doctor.getDoctorId());
-        double average = (avg != null) ? avg : 0.0;
-
-        // Round to 1 decimal for storage/display only — never fed back into a calculation.
-        double rounded = BigDecimal.valueOf(average).setScale(1, RoundingMode.HALF_UP).doubleValue();
-
-        doctor.setTotalReviews((int) totalReviews);
-        doctor.setAverageRating(rounded);
-
-        doctorRepository.save(doctor);
-        log.info("Recomputed stats for doctor {}: avg {}, total {}",
-                doctor.getDoctorId(), rounded, totalReviews);
-    }
 }

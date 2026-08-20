@@ -50,6 +50,18 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Versioned schema. Hibernate's ddl-auto could never add a UNIQUE constraint to an
+		     existing table, which is exactly what the double-booking guards need. -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>

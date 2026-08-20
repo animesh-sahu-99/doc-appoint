@@ -18,7 +18,7 @@ public interface UserDeviceRepository extends JpaRepository<UserDevice, String> 
     List<UserDevice> findByUserIdAndIsActiveTrue(String userId);
     Optional<UserDevice> findByFcmToken(String fcmToken);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE UserDevice d SET d.isActive = false WHERE d.userId = :userId AND d.fcmToken != :excludeToken")
     void deactivateOldTokensForUser(@Param("userId") String userId, @Param("excludeToken") String excludeToken);
 

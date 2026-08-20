@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 public class DoctorRegistrationRequest {
 
     @NotBlank(message = "Name is required")
+    @Size(max = 100, message = "Name must not exceed 100 characters")
     private String name;
     @Email(message = "Invalid email format")
     private String email;
@@ -29,6 +30,7 @@ public class DoctorRegistrationRequest {
     @NotNull(message = "Specialization is required")
     private Specialization specialization;
 
+    @Size(max = 255, message = "Qualification must not exceed 255 characters")
     private String qualification;
 
     @Min(value = 0, message = "Experience cannot be negative")
@@ -37,6 +39,7 @@ public class DoctorRegistrationRequest {
     @DecimalMin(value = "0.0", message = "Fee must be positive")
     private BigDecimal consultationFee;
 
+    @Size(max = 2000, message = "About must not exceed 2000 characters")
     private String about;
 
 }

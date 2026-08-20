@@ -1,89 +1,74 @@
 package com.clinic.doc_appointment.service;
 
-import com.clinic.doc_appointment.dto.request.PatientRegistrationRequest;
 import com.clinic.doc_appointment.dto.request.PatientUpdateRequest;
 import com.clinic.doc_appointment.dto.response.PatientResponse;
 import com.clinic.doc_appointment.entity.Patient;
-import com.clinic.doc_appointment.exception.DuplicateResourceException;
+import com.clinic.doc_appointment.exception.InvalidStateException;
 import com.clinic.doc_appointment.mapper.PatientMapper;
+import com.clinic.doc_appointment.repository.AppointmentDocumentRepository;
+import com.clinic.doc_appointment.repository.AppointmentRepository;
 import com.clinic.doc_appointment.repository.PatientRepository;
+import com.clinic.doc_appointment.repository.ReviewRepository;
+import com.clinic.doc_appointment.security.AppointmentAccessGuard;
+import com.clinic.doc_appointment.security.SelfAccessGuard;
+import com.clinic.doc_appointment.security.UserPrincipal;
 import com.clinic.doc_appointment.service.registration.RegistrationValidator;
 import com.clinic.doc_appointment.util.EntityFinder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
+/**
+ * Patient profile reads and updates.
+ *
+ * <p>Registration lives in {@code service.registration.PatientRegistrationService} (Template
+ * Method) and is reached only through {@code /api/auth/patient/register}. This class deliberately
+ * has no register method: a second copy of that logic previously sat behind an authenticated
+ * endpoint, which let any signed-in user create accounts.
+ *
+ * <p>Every method takes the calling principal, because a patient id in a path is a claim, not
+ * proof. Reads use {@link AppointmentAccessGuard} so a doctor treating the patient can still see
+ * the profile; writes use {@link SelfAccessGuard} because only the patient may change their own.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class PatientService {
 
     private final PatientRepository patientRepository;
-    private final PasswordEncoder passwordEncoder;  // ✅ Injected for BCrypt
+    private final AppointmentRepository appointmentRepository;
+    private final ReviewRepository reviewRepository;
+    private final AppointmentDocumentRepository documentRepository;
     private final PatientMapper patientMapper;
     private final RegistrationValidator registrationValidator;
+    private final AppointmentAccessGuard appointmentAccessGuard;
+    private final SelfAccessGuard selfAccessGuard;
 
-    @Transactional
-    public PatientResponse registerPatient(PatientRegistrationRequest request) {
-        log.info("Registering new patient with phone: {} {}",
-                request.getCountryCode(), request.getPhoneNumber());
-
-        // Cross-table uniqueness (shared with the /auth registration path)
-        registrationValidator.validatePatientRegistration(
-                request.getEmail(), request.getCountryCode(), request.getPhoneNumber());
-
-        // Create patient entity
-        Patient patient = new Patient()
-                .setFirstName(request.getName())
-                .setEmail(request.getEmail())
-                .setCountryCode(request.getCountryCode())
-                .setPhoneNumber(request.getPhoneNumber())
-                .setPassword(passwordEncoder.encode(request.getPassword()))  // ✅ BCrypt hashed
-                .setGender(request.getGender())
-                .setDateOfBirth(request.getDateOfBirth())
-                .setAddress(request.getAddress());
-
-        Patient savedPatient = patientRepository.save(patient);
-        log.info("Patient registered successfully with ID: {}", savedPatient.getPatientId());
-
-        return patientMapper.toResponse(savedPatient);
-    }
-
-    public PatientResponse getPatientById(String patientId) {
-        Patient patient = findPatientById(patientId);
-        return patientMapper.toResponse(patient);
-    }
-
-    public PatientResponse getPatientByPhone(String countryCode, String phoneNumber) {
-        Patient patient = EntityFinder.orThrow(
-                patientRepository.findByCountryCodeAndPhoneNumber(countryCode, phoneNumber),
-                "Patient not found with phone: " + countryCode + " " + phoneNumber);
-        return patientMapper.toResponse(patient);
-    }
-
-    public List<PatientResponse> getAllPatients() {
-        return patientMapper.toResponseList(patientRepository.findAll());
+    /**
+     * The patient themselves, or a doctor who has at least one appointment with them — the doctor
+     * case is what lets the appointment detail screen show who it is treating.
+     */
+    @Transactional(readOnly = true)
+    public PatientResponse getPatientById(String patientId, UserPrincipal caller) {
+        appointmentAccessGuard.assertCanViewPatientHistory(caller, patientId);
+        return patientMapper.toResponse(findPatientById(patientId));
     }
 
     @Transactional
-    public PatientResponse updatePatient(String patientId, PatientUpdateRequest request) {
+    public PatientResponse updatePatient(String patientId, PatientUpdateRequest request, UserPrincipal caller) {
+        selfAccessGuard.assertPatientSelf(caller, patientId);
         log.info("Updating patient: {}", patientId);
 
         Patient patient = findPatientById(patientId);
 
-        // Check email uniqueness if being updated
+        // Email uniqueness must be checked across BOTH tables, not just patients — see
+        // RegistrationValidator.requireEmailAvailable for why a single-table check locks the user out.
         if (request.getEmail() != null && !request.getEmail().equals(patient.getEmail())) {
-            if (patientRepository.existsByEmail(request.getEmail())) {
-                throw new DuplicateResourceException("Email already in use");
-            }
+            registrationValidator.requireEmailAvailable(request.getEmail());
             patient.setEmail(request.getEmail());
         }
 
-        // Update other fields if provided
         if (request.getFirstName() != null) {
             patient.setFirstName(request.getFirstName());
         }
@@ -106,10 +91,40 @@ public class PatientService {
         return patientMapper.toResponse(updatedPatient);
     }
 
+    /**
+     * Hard-deletes a patient, but only one with no history.
+     *
+     * <p>{@code Patient.appointments} cascades {@code ALL} and {@code Appointment.payment} cascades
+     * {@code ALL}, so an unguarded delete would silently take the clinic's appointment <em>and</em>
+     * payment records with it, while leaving each freed slot stuck at {@code is_available = false}
+     * forever. Reviews and documents do not cascade at all, so the same call would instead fail on a
+     * foreign key and surface as an unexplained 409.
+     *
+     * <p>Refusing with a specific reason is the honest behaviour for both. Anonymising the record
+     * instead of deleting it is the better long-term answer, but that is a schema change and a
+     * product decision, not a bug fix.
+     */
     @Transactional
-    public void deletePatient(String patientId) {
+    public void deletePatient(String patientId, UserPrincipal caller) {
+        selfAccessGuard.assertPatientSelf(caller, patientId);
         log.info("Deleting patient: {}", patientId);
+
         Patient patient = findPatientById(patientId);
+
+        if (appointmentRepository.existsByPatientPatientId(patientId)) {
+            throw new InvalidStateException(
+                    "This account has appointment history and cannot be deleted. "
+                            + "Contact the clinic to have your records archived.");
+        }
+        if (reviewRepository.existsByPatientPatientId(patientId)) {
+            throw new InvalidStateException(
+                    "This account has reviews attached and cannot be deleted.");
+        }
+        if (documentRepository.existsByAppointmentPatientPatientId(patientId)) {
+            throw new InvalidStateException(
+                    "This account has medical documents attached and cannot be deleted.");
+        }
+
         patientRepository.delete(patient);
         log.info("Patient deleted successfully: {}", patientId);
     }

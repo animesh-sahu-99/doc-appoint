@@ -13,6 +13,7 @@ public class PatientUpdateRequest {
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
     private String firstName;
 
+    @Size(max = 50, message = "Last name must not exceed 50 characters")
     private String lastName;
 
     @Email(message = "Invalid email format")
@@ -23,5 +24,6 @@ public class PatientUpdateRequest {
     @Past(message = "Date of birth must be in the past")
     private LocalDate dateOfBirth;
 
+    @Size(max = 500, message = "Address must not exceed 500 characters")
     private String address;
 }

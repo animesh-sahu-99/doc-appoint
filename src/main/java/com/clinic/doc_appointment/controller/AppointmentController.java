@@ -42,18 +42,20 @@ public class AppointmentController {
 
     @GetMapping("/{appointmentId}")
     public ResponseEntity<ApiResponse<AppointmentResponse>> getAppointmentById(
-            @PathVariable String appointmentId) {
+            @PathVariable String appointmentId,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        AppointmentResponse response = appointmentService.getAppointmentById(appointmentId);
+        AppointmentResponse response = appointmentService.getAppointmentById(appointmentId, principal);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/number/{appointmentNumber}")
     public ResponseEntity<ApiResponse<AppointmentResponse>> getAppointmentByNumber(
-            @PathVariable String appointmentNumber) {
+            @PathVariable String appointmentNumber,
+            @AuthenticationPrincipal UserPrincipal principal) {
 
-        AppointmentResponse response = appointmentService.getAppointmentByNumber(appointmentNumber);
+        AppointmentResponse response = appointmentService.getAppointmentByNumber(appointmentNumber, principal);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }

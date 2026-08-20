@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtServiceTest {
 
+    /** No active profile: the committed-default guard applies, as it would in production. */
+    private static final String NO_PROFILE = "";
+
     private static final String SECRET = "unit-test-signing-secret-key-of-sufficient-length-2026";
     private static final String OTHER_SECRET = "a-completely-different-signing-secret-key-2026-abcdef";
     private static final long ONE_HOUR = 3_600_000L;
@@ -35,7 +38,7 @@ class JwtServiceTest {
     }
 
     private static JwtService newService(String secret, long expiration, boolean requireTokenType) {
-        JwtService service = new JwtService(secret, expiration, requireTokenType);
+        JwtService service = new JwtService(secret, expiration, requireTokenType, NO_PROFILE);
         service.validateSecret();
         return service;
     }
@@ -142,13 +145,13 @@ class JwtServiceTest {
 
     @Test
     void rejectsSecretShorterThanTheHmacMinimum() {
-        JwtService weak = new JwtService("too-short", ONE_HOUR, false);
+        JwtService weak = new JwtService("too-short", ONE_HOUR, false, NO_PROFILE);
         assertThrows(IllegalStateException.class, weak::validateSecret);
     }
 
     @Test
     void acceptsSecretAtExactlyTheHmacMinimum() {
-        JwtService boundary = new JwtService("0123456789abcdef0123456789abcdef", ONE_HOUR, false);
+        JwtService boundary = new JwtService("0123456789abcdef0123456789abcdef", ONE_HOUR, false, NO_PROFILE);
         boundary.validateSecret();   // 32 bytes — must not throw
     }
 

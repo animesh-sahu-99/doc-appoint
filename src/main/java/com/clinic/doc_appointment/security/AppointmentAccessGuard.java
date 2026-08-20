@@ -34,6 +34,15 @@ public class AppointmentAccessGuard {
         throw new ForbiddenOperationException("You are not authorized to perform this action.");
     }
 
+    /** True when the caller is either the appointment's own patient or its own doctor. */
+    private boolean ownsAppointment(UserPrincipal caller, Appointment appointment) {
+        boolean owningPatient = isPatient(caller)
+                && appointment.getPatient().getPatientId().equals(caller.getId());
+        boolean owningDoctor = isDoctor(caller)
+                && appointment.getDoctor().getDoctorId().equals(caller.getId());
+        return owningPatient || owningDoctor;
+    }
+
     /**
      * A patient may read their own history; a doctor may read the history of a patient
      * they have at least one appointment with. Everyone else is denied.
@@ -57,6 +66,29 @@ public class AppointmentAccessGuard {
         deny();
     }
 
+    /**
+     * Reading one appointment (and anything derived from it, e.g. its payment or documents):
+     * the owning patient or the owning doctor.
+     *
+     * <p>{@code AppointmentResponse} carries clinical {@code notes} and the patient's phone
+     * number, and appointment numbers are guessable, so this must be checked on every read
+     * path — not only on mutations.
+     */
+    public void assertCanViewAppointment(UserPrincipal caller, Appointment appointment) {
+        if (ownsAppointment(caller, appointment)) {
+            return;
+        }
+        deny();
+    }
+
+    /** Paying for an appointment: only the patient it belongs to. */
+    public void assertOwnsAppointmentAsPatient(UserPrincipal caller, Appointment appointment) {
+        if (isPatient(caller) && appointment.getPatient().getPatientId().equals(caller.getId())) {
+            return;
+        }
+        deny();
+    }
+
     /** confirm / complete / no-show / notes: only the appointment's own doctor. */
     public void assertOwnsAppointmentAsDoctor(UserPrincipal caller, Appointment appointment) {
         if (isDoctor(caller) && appointment.getDoctor().getDoctorId().equals(caller.getId())) {
@@ -67,11 +99,7 @@ public class AppointmentAccessGuard {
 
     /** cancel: the owning patient or the owning doctor. */
     public void assertCanCancel(UserPrincipal caller, Appointment appointment) {
-        boolean owningPatient = isPatient(caller)
-                && appointment.getPatient().getPatientId().equals(caller.getId());
-        boolean owningDoctor = isDoctor(caller)
-                && appointment.getDoctor().getDoctorId().equals(caller.getId());
-        if (owningPatient || owningDoctor) {
+        if (ownsAppointment(caller, appointment)) {
             return;
         }
         deny();
